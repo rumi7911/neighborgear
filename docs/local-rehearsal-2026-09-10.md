@@ -1,5 +1,7 @@
 # Local release rehearsal — 10 September 2026
 
+> Update, 11 September 2026: AWS has applied the Ireland Lambda concurrent-execution quota of 1,000, with utilization still at zero. A fresh Billing check found $120 remaining and $0 used, and the AgentCore console showed no runtime resources. These clear the quota and planning-cost gates; they do not activate deployment. Non-root tooling, live IAM validation, explicit deployment approval and the first paid model-invocation approval remain outstanding.
+
 Completed while the Ireland Lambda quota request is pending. No AWS deployment, account changes or model invocation was performed by this rehearsal.
 
 ## Fresh results

@@ -9,6 +9,7 @@ dist/
 .env.*
 !.env.example
 .DS_Store
+.devpost-hackathon-state.json
 *.sqlite*
 .aws-sam/
 .superpowers/

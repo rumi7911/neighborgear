@@ -1,6 +1,22 @@
 # Credits and deployment gate
 
-## Quota request checkpoint — 10 September 2026
+## Quota approval checkpoint — 11 September 2026
+
+AWS Support reports the Ireland Lambda Concurrent executions request as fully approved at 1,000. A fresh root-console check of quota `L-B99A9384` in `eu-west-1` then verified **Applied account-level quota value: 1,000** and utilization of 0. The template's 2 + 1 + 1 reserved concurrency settings are therefore compatible with AWS's requirement to retain 100 unreserved executions, assuming a final pre-deployment check still shows no competing reservations. This clears the Lambda quota gate only; it does not authorize deployment, model invocation, permissions changes or personal spending. The private support case identifier and account evidence are deliberately excluded from this public repository.
+
+## Fresh credit and cost checkpoint — 11 September 2026
+
+A fresh Billing console check showed **$120.00 remaining, $0.00 used**, across two active promotional credits that expire 5 September 2027. The active Free Tier credit's product list includes Amazon Bedrock foundation models and the project's core serverless services. The AgentCore Runtime console is accessible in Ireland and shows zero runtime resources. No model or runtime was invoked during this check.
+
+The proposed bounded evaluation is 20 live model runs: ten fixed local scenarios and ten protected cloud/demo runs. A deliberately conservative estimate assumes 13 model turns per run, 30,000 input tokens and 2,048 output tokens per turn, plus 50 one-minute AgentCore sessions at a continuous peak of 1 vCPU and 2 GB and a $1 contingency for logs, API, queue and storage. Using the published Nova Lite and AgentCore prices, that envelope is approximately **$1.69**: $0.60 Bedrock, $0.09 AgentCore compute and $1.00 contingency. This is a planning ceiling, not an observed bill or a guarantee of credit eligibility.
+
+Amazon Nova Lite's documented EU inference profile is `eu.amazon.nova-lite-v1:0`, with Ireland among its source Regions and Converse support. Bedrock now enables serverless foundation-model access on first invocation subject to IAM and account prerequisites; the first invocation remains deliberately untested. The project must still stop if a fresh credit or permission check differs, and the first paid invocation requires explicit owner approval.
+
+Local AWS CLI access is not configured, and the AWS plugin connection expired during this checkpoint. Live non-root IAM validation, deployment-role activation and cloud deployment therefore remain pending. No static access keys will be created as a shortcut.
+
+Pricing sources: [AgentCore](https://aws.amazon.com/bedrock/agentcore/pricing/), [Nova Lite](https://aws.amazon.com/blogs/machine-learning/customizing-text-content-moderation-with-amazon-nova/), and [Lambda](https://aws.amazon.com/lambda/pricing/). Model reference: [Amazon Nova Lite model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-lite.html).
+
+## Quota request checkpoint — 10 September 2026 (historical)
 
 With explicit owner approval conditional on no charges or plan upgrade, submitted an Ireland Lambda Concurrent executions quota request for 1,000 through the root console. The console required a requested value at least equal to the default 1,000; it would not accept the application's calculated minimum of 104. Request history verified **Pending**, requested value 1,000, dated 10 September. This is not approval or an applied quota increase. No plan upgrade, application resource deployment, model invocation or changes to the template's 2 + 1 + 1 reserved concurrency limits occurred. Quota compatibility remains blocked until approval and a fresh applied-limit check. Earlier statements that no quota request occurred are historical.
 
@@ -8,7 +24,7 @@ Read-only preflight completed, 10 September: owner-approved NeighborGearPrefligh
 
 Latest access checkpoint, 10 September: the OAuth sign-in policy was attached with owner approval, MFA remains enabled, and STS verified the reconnected plugin as NeighborGearOperator (not root). The next preflight's self-policy/group listings and Ireland Lambda GetAccountSettings were all denied for missing identity permissions. Reauthentication is no longer the blocker; scoped read access and subsequent deployment authorization remain pending. No quota increase, deployment or model invocation occurred.
 
-Status: **credit balance and core service coverage verified; application deployment and paid Bedrock evaluation remain disabled.** Only the previously approved monitoring budget and operator sign-in setup have been created in AWS.
+Status: **quota, credit-balance and planning-cost gates verified; application deployment and paid Bedrock evaluation remain disabled pending non-root tooling, live IAM validation and explicit deployment/invocation approvals.** Only the previously approved monitoring budget and operator sign-in setup have been created in AWS.
 
 ## Access-policy checkpoint — 9 September 2026
 
