@@ -1,6 +1,6 @@
 # Publication readiness — 11 September 2026
 
-Local preparation only. No GitHub repository was created, no files were uploaded, and no AWS resources were enabled.
+Published on 11 September 2026: [rumi7911/neighborgear](https://github.com/rumi7911/neighborgear), public, default branch `codex/neighborgear`. The initial publication contained 92 reviewed files. Gitleaks 8.30.1 found no leaks in the staged diff; 131 Python tests and all five infrastructure template lint checks passed locally. The initial commit uses the owner's GitHub no-reply email. No AWS resources were enabled. Hosted CI results must be checked separately.
 
 ## Completed review
 
@@ -15,7 +15,7 @@ Local preparation only. No GitHub repository was created, no files were uploaded
 
 1. Confirm the destination GitHub account and repository name, and approve public publication.
 2. Review the exact staged file list and diff, including the design image, before the first commit. Do not include billing screenshots, private operator evidence, credentials or actual recipient data.
-3. Perform a dedicated secret scan over the final publication contents. The repository currently has no commits or remote; future history also needs checking if that changes.
+3. Repeat the dedicated secret scan for later publication changes, including new Git history. The initial staged-diff scan passed before the first commit and push.
 4. Publish the reviewed source and verify the hosted CI result. Local test evidence is recorded separately in `local-rehearsal-2026-09-10.md`.
 5. Keep deployment and live-model claims conditional until measured. Add verified repository, demo, video and article URLs only after those artifacts exist.
 

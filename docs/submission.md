@@ -4,6 +4,8 @@
 
 **Track:** Good Neighbor Agents
 
+**Public source:** https://github.com/rumi7911/neighborgear
+
 ## Inspiration
 Community equipment reuse depends on many small handoffs: finding the right item, confirming suitability, arranging collection, responding to cancellations, and bringing equipment back into circulation. NeighborGear explores how an agent can help a coordinator carry those handoffs through to completion.
 
@@ -24,7 +26,7 @@ The evaluation suite measures workflow completion, errors, and latency. Time sav
 
 ## Submission checklist
 - [ ] Verify entrant eligibility and registration; obtain AWS Builder ID.
-- [ ] Publish repository, README, MIT licence, architecture diagram, and reproducible setup.
+- [x] Publish repository, README, MIT licence, architecture diagram, and reproducible setup.
 - [ ] Verify live model execution and retain evaluation evidence.
 - [ ] Make a public video of at most five minutes showing the working project.
 - [ ] Supply testing instructions and the verified demo URL if deployed.
