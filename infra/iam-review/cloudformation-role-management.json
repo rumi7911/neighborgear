@@ -1,0 +1,51 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateOnlyBoundedWorkloadRoles",
+      "Effect": "Allow",
+      "Action": ["iam:CreateRole"],
+      "Resource": "arn:aws:iam::${AccountId}:role/neighborgear-demo/*",
+      "Condition": {"ArnEquals": {"iam:PermissionsBoundary": "arn:aws:iam::${AccountId}:policy/NeighborGearWorkloadBoundary"}}
+    },
+    {
+      "Sid": "ManageOnlyProjectInlineRoles",
+      "Effect": "Allow",
+      "Action": ["iam:GetRole", "iam:GetRolePolicy", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:ListRoleTags", "iam:PutRolePolicy", "iam:DeleteRolePolicy", "iam:DeleteRole", "iam:TagRole", "iam:UntagRole", "iam:UpdateAssumeRolePolicy"],
+      "Resource": "arn:aws:iam::${AccountId}:role/neighborgear-demo/*"
+    },
+    {
+      "Sid": "PassOnlyLambdaRolesToLambda",
+      "Effect": "Allow",
+      "Action": ["iam:PassRole"],
+      "Resource": ["arn:aws:iam::${AccountId}:role/neighborgear-demo/neighborgear-demo-Api", "arn:aws:iam::${AccountId}:role/neighborgear-demo/neighborgear-demo-Worker", "arn:aws:iam::${AccountId}:role/neighborgear-demo/neighborgear-demo-Sweep"],
+      "Condition": {"StringEquals": {"iam:PassedToService": "lambda.amazonaws.com"}}
+    },
+    {
+      "Sid": "PassOnlyRuntimeRoleToAgentCore",
+      "Effect": "Allow",
+      "Action": ["iam:PassRole"],
+      "Resource": ["arn:aws:iam::${AccountId}:role/neighborgear-demo/neighborgear-demo-Runtime"],
+      "Condition": {"StringEquals": {"iam:PassedToService": "bedrock-agentcore.amazonaws.com"}}
+    },
+    {
+      "Sid": "PassOnlySchedulerRoleToScheduler",
+      "Effect": "Allow",
+      "Action": ["iam:PassRole"],
+      "Resource": ["arn:aws:iam::${AccountId}:role/neighborgear-demo/neighborgear-demo-Scheduler"],
+      "Condition": {"StringEquals": {"iam:PassedToService": "scheduler.amazonaws.com"}}
+    },
+    {
+      "Sid": "NeverReplaceOrRemoveWorkloadBoundaries",
+      "Effect": "Deny",
+      "Action": ["iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverManageOrAttachManagedPolicies",
+      "Effect": "Deny",
+      "Action": ["iam:CreatePolicy", "iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion", "iam:DeletePolicyVersion", "iam:DeletePolicy", "iam:AttachRolePolicy"],
+      "Resource": "*"
+    }
+  ]
+}

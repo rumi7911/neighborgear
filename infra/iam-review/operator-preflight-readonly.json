@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListOnlyNeighborGearOperatorAccessMetadata",
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListAttachedUserPolicies",
+        "iam:ListUserPolicies",
+        "iam:ListGroupsForUser"
+      ],
+      "Resource": "arn:aws:iam::${AccountId}:user/NeighborGearOperator"
+    },
+    {
+      "Sid": "ReadIrelandLambdaAccountLimits",
+      "Effect": "Allow",
+      "Action": "lambda:GetAccountSettings",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "eu-west-1"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+[project]
+name = "neighborgear"
+version = "0.1.0"
+description = "Isolated community walking-aid coordination sandbox"
+requires-python = ">=3.12"
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "pydantic>=2.10,<3", "strands-agents>=1.0,<2", "boto3>=1.35,<2"]
+
+[project.optional-dependencies]
+cloud = [
+    "bedrock-agentcore>=1.22.0",
+    "mangum>=0.22.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<10",
+    "httpx>=0.28,<1",
+    "moto[dynamodb,s3,sqs]>=5.2.3",
+    "cfn-lint>=1.56.0",
+    "aws-sam-translator==1.113.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests", "infra/tests"]
+pythonpath = ["."]

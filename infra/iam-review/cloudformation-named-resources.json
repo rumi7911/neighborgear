@@ -1,0 +1,112 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageOnlyDemoTableConfiguration",
+      "Effect": "Allow",
+      "Action": ["dynamodb:CreateTable", "dynamodb:DescribeTable", "dynamodb:UpdateTable", "dynamodb:DeleteTable", "dynamodb:DescribeTimeToLive", "dynamodb:UpdateTimeToLive", "dynamodb:TagResource", "dynamodb:UntagResource", "dynamodb:ListTagsOfResource"],
+      "Resource": "arn:aws:dynamodb:eu-west-1:${AccountId}:table/neighborgear-demo-records"
+    },
+    {
+      "Sid": "ManageOnlyDemoQueues",
+      "Effect": "Allow",
+      "Action": ["sqs:CreateQueue", "sqs:GetQueueAttributes", "sqs:GetQueueUrl", "sqs:SetQueueAttributes", "sqs:DeleteQueue", "sqs:TagQueue", "sqs:UntagQueue", "sqs:ListQueueTags"],
+      "Resource": ["arn:aws:sqs:eu-west-1:${AccountId}:neighborgear-demo-work.fifo", "arn:aws:sqs:eu-west-1:${AccountId}:neighborgear-demo-dead-letters.fifo"]
+    },
+    {
+      "Sid": "CreateOnlyNamedIrelandApplicationBuckets",
+      "Effect": "Allow",
+      "Action": ["s3:CreateBucket"],
+      "Resource": ["arn:aws:s3:::neighborgear-demo-${AccountId}-eu-west-1-sessions"],
+      "Condition": {"StringEquals": {"s3:LocationConstraint": "eu-west-1"}}
+    },
+    {
+      "Sid": "ConfigureOnlyOwnedApplicationBuckets",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation", "s3:GetEncryptionConfiguration", "s3:PutEncryptionConfiguration", "s3:GetBucketPublicAccessBlock", "s3:PutBucketPublicAccessBlock", "s3:GetBucketTagging", "s3:PutBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketOwnershipControls"],
+      "Resource": ["arn:aws:s3:::neighborgear-demo-${AccountId}-eu-west-1-sessions"],
+      "Condition": {"StringEquals": {"s3:ResourceAccount": "${AccountId}"}}
+    },
+    {
+      "Sid": "ConfigureOnlyFictionalSessionExpiry",
+      "Effect": "Allow",
+      "Action": ["s3:GetLifecycleConfiguration", "s3:PutLifecycleConfiguration"],
+      "Resource": "arn:aws:s3:::neighborgear-demo-${AccountId}-eu-west-1-sessions",
+      "Condition": {"StringEquals": {"s3:ResourceAccount": "${AccountId}"}}
+    },
+    {
+      "Sid": "ReadOnlyOwnerUploadedCode",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::${ArtifactBucketName}/agent/*",
+      "Condition": {"StringEquals": {"s3:ResourceAccount": "${AccountId}"}}
+    },
+    {
+      "Sid": "ManageOnlyThreeDemoFunctions",
+      "Effect": "Allow",
+      "Action": ["lambda:CreateFunction", "lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:DeleteFunction", "lambda:PutFunctionConcurrency", "lambda:GetFunctionConcurrency", "lambda:TagResource", "lambda:UntagResource", "lambda:ListTags"],
+      "Resource": ["arn:aws:lambda:eu-west-1:${AccountId}:function:neighborgear-demo-api", "arn:aws:lambda:eu-west-1:${AccountId}:function:neighborgear-demo-worker", "arn:aws:lambda:eu-west-1:${AccountId}:function:neighborgear-demo-sweep"]
+    },
+    {
+      "Sid": "PermitOnlyApiGatewayFunctionPermission",
+      "Effect": "Allow",
+      "Action": ["lambda:AddPermission"],
+      "Resource": "arn:aws:lambda:eu-west-1:${AccountId}:function:neighborgear-demo-api",
+      "Condition": {"StringEquals": {"lambda:Principal": "apigateway.amazonaws.com"}}
+    },
+    {
+      "Sid": "ReadAndRemoveOnlyApiFunctionPermissions",
+      "Effect": "Allow",
+      "Action": ["lambda:GetPolicy", "lambda:RemovePermission"],
+      "Resource": "arn:aws:lambda:eu-west-1:${AccountId}:function:neighborgear-demo-api"
+    },
+    {
+      "Sid": "CreateEventMappingOnlyForWorkerInIreland",
+      "Effect": "Allow",
+      "Action": ["lambda:CreateEventSourceMapping"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {"aws:RequestedRegion": "eu-west-1"},
+        "ArnEquals": {"lambda:FunctionArn": "arn:aws:lambda:eu-west-1:${AccountId}:function:neighborgear-demo-worker"}
+      }
+    },
+    {
+      "Sid": "ManageOnlyWorkerEventMappings",
+      "Effect": "Allow",
+      "Action": ["lambda:GetEventSourceMapping", "lambda:UpdateEventSourceMapping", "lambda:DeleteEventSourceMapping"],
+      "Resource": "arn:aws:lambda:eu-west-1:${AccountId}:event-source-mapping:*",
+      "Condition": {"ArnEquals": {"lambda:FunctionArn": "arn:aws:lambda:eu-west-1:${AccountId}:function:neighborgear-demo-worker"}}
+    },
+    {
+      "Sid": "ManageOnlyDemoLogGroups",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy", "logs:TagLogGroup", "logs:UntagLogGroup", "logs:ListTagsLogGroup"],
+      "Resource": ["arn:aws:logs:eu-west-1:${AccountId}:log-group:/aws/lambda/neighborgear-demo-api:*", "arn:aws:logs:eu-west-1:${AccountId}:log-group:/aws/lambda/neighborgear-demo-worker:*", "arn:aws:logs:eu-west-1:${AccountId}:log-group:/aws/lambda/neighborgear-demo-sweep:*"]
+    },
+    {
+      "Sid": "ManageTagsOnlyOnDemoLogGroups",
+      "Effect": "Allow",
+      "Action": ["logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource"],
+      "Resource": ["arn:aws:logs:eu-west-1:${AccountId}:log-group:/aws/lambda/neighborgear-demo-api", "arn:aws:logs:eu-west-1:${AccountId}:log-group:/aws/lambda/neighborgear-demo-worker", "arn:aws:logs:eu-west-1:${AccountId}:log-group:/aws/lambda/neighborgear-demo-sweep"]
+    },
+    {
+      "Sid": "DiscoverLogGroupMetadataOnlyInIreland",
+      "Effect": "Allow",
+      "Action": ["logs:DescribeLogGroups"],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"aws:RequestedRegion": "eu-west-1"}}
+    },
+    {
+      "Sid": "ManageOnlyProjectReminderGroup",
+      "Effect": "Allow",
+      "Action": ["scheduler:CreateScheduleGroup", "scheduler:GetScheduleGroup", "scheduler:DeleteScheduleGroup", "scheduler:TagResource", "scheduler:UntagResource", "scheduler:ListTagsForResource"],
+      "Resource": "arn:aws:scheduler:eu-west-1:${AccountId}:schedule-group/neighborgear-demo-reminders"
+    },
+    {
+      "Sid": "ManageSchedulesOnlyInsideProjectGroup",
+      "Effect": "Allow",
+      "Action": ["scheduler:CreateSchedule", "scheduler:GetSchedule", "scheduler:UpdateSchedule", "scheduler:DeleteSchedule"],
+      "Resource": "arn:aws:scheduler:eu-west-1:${AccountId}:schedule/neighborgear-demo-reminders/*"
+    }
+  ]
+}

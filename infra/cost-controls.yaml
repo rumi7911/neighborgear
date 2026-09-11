@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: NeighborGear gross account-cost alerts; opt-in monitoring only, not a spending cap.
+Parameters:
+  EnableAlerts:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Enable only after the owner approves the alert recipient.
+  AlertEmail:
+    Type: String
+    NoEcho: true
+    MinLength: 3
+    MaxLength: 320
+    AllowedPattern: '^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    ConstraintDescription: Enter the owner-approved email address for billing alerts.
+Conditions:
+  AlertsEnabled: !Equals [!Ref EnableAlerts, 'true']
+Resources:
+  CreditSpendBudget:
+    Type: AWS::Budgets::Budget
+    Condition: AlertsEnabled
+    Properties:
+      Budget:
+        BudgetName: !Sub '${AWS::StackName}-gross-account-spend'
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: 20, Unit: USD}
+        CostTypes:
+          IncludeCredit: false
+          IncludeRefund: false
+          IncludeDiscount: true
+          IncludeOtherSubscription: true
+          IncludeRecurring: true
+          IncludeSubscription: true
+          IncludeSupport: true
+          IncludeTax: true
+          IncludeUpfront: true
+          UseAmortized: false
+          UseBlended: false
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            ThresholdType: ABSOLUTE_VALUE
+            Threshold: 1
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            ThresholdType: ABSOLUTE_VALUE
+            Threshold: 5
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            ThresholdType: ABSOLUTE_VALUE
+            Threshold: 10
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            ThresholdType: ABSOLUTE_VALUE
+            Threshold: 20
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            ThresholdType: ABSOLUTE_VALUE
+            Threshold: 20
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+Outputs:
+  BudgetName:
+    Condition: AlertsEnabled
+    Description: Account-wide monitoring budget; credits/refunds do not offset reported spend.
+    Value: !Ref CreditSpendBudget

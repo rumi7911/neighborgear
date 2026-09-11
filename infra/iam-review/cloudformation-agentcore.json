@@ -1,0 +1,49 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateTaggedRuntimeOnlyInIreland",
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:CreateAgentRuntime"],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"aws:RequestedRegion": "eu-west-1", "aws:RequestTag/Project": "NeighborGear"}}
+    },
+    {
+      "Sid": "ManageOnlyNamedProjectRuntimes",
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:GetAgentRuntime", "bedrock-agentcore:UpdateAgentRuntime", "bedrock-agentcore:DeleteAgentRuntime", "bedrock-agentcore:CreateAgentRuntimeEndpoint"],
+      "Resource": "arn:aws:bedrock-agentcore:eu-west-1:${AccountId}:runtime/NeighborGear_${AccountId}-??????????"
+    },
+    {
+      "Sid": "InspectAndRemoveOnlyProjectRuntimeEndpoints",
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:GetAgentRuntimeEndpoint", "bedrock-agentcore:DeleteAgentRuntimeEndpoint"],
+      "Resource": [
+        "arn:aws:bedrock-agentcore:eu-west-1:${AccountId}:runtime/NeighborGear_${AccountId}-??????????",
+        "arn:aws:bedrock-agentcore:eu-west-1:${AccountId}:runtime/NeighborGear_${AccountId}-??????????/runtime-endpoint/*"
+      ]
+    },
+    {
+      "Sid": "ManageOnlyProjectRuntimeTags",
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:TagResource", "bedrock-agentcore:UntagResource", "bedrock-agentcore:ListTagsForResource"],
+      "Resource": [
+        "arn:aws:bedrock-agentcore:eu-west-1:${AccountId}:runtime/NeighborGear_${AccountId}-??????????",
+        "arn:aws:bedrock-agentcore:eu-west-1:${AccountId}:runtime/NeighborGear_${AccountId}-??????????/runtime-endpoint/*"
+      ]
+    },
+    {
+      "Sid": "RemoveOnlyVerifiedAssociatedWorkloadIdentity",
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:DeleteWorkloadIdentity"],
+      "Resource": "${WorkloadIdentityArn}",
+      "Condition": {"StringEquals": {"aws:RequestedRegion": "eu-west-1"}}
+    },
+    {
+      "Sid": "NeverSelectInstancesCapacity",
+      "Effect": "Deny",
+      "Action": ["bedrock-agentcore:PassCapacityProvider"],
+      "Resource": "*"
+    }
+  ]
+}

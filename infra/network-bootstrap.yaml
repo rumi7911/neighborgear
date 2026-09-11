@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Owner-controlled NeighborGear network prerequisites; disabled pending separate cost and change-set approval.
+Parameters:
+  EnableNetwork:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  CreditsVerified:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  ApplicationStackName:
+    Type: String
+    Default: neighborgear-demo
+    AllowedValues: [neighborgear-demo]
+Rules:
+  CreditGate:
+    RuleCondition: !Equals [!Ref EnableNetwork, 'true']
+    Assertions:
+      - Assert: !Equals [!Ref CreditsVerified, 'true']
+        AssertDescription: Verify credits and approve network costs before enabling resources.
+Conditions:
+  Enabled: !Equals [!Ref EnableNetwork, 'true']
+Resources:
+  Api:
+    Type: AWS::ApiGatewayV2::Api
+    Condition: Enabled
+    Properties:
+      Name: !Sub '${ApplicationStackName}-api'
+      ProtocolType: HTTP
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Condition: Enabled
+    Properties:
+      ApiId: !Ref Api
+      StageName: '$default'
+      AutoDeploy: true
+      DefaultRouteSettings: {ThrottlingBurstLimit: 5, ThrottlingRateLimit: 2}
+  WebAssets:
+    Type: AWS::S3::Bucket
+    Condition: Enabled
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub '${ApplicationStackName}-${AWS::AccountId}-${AWS::Region}-web'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: [{ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}}]
+      PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
+  OriginAccess:
+    Type: AWS::CloudFront::OriginAccessControl
+    Condition: Enabled
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-private-assets'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+  ForwardHeaders:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Condition: Enabled
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub '${AWS::StackName}-api-headers'
+        CookiesConfig: {CookieBehavior: none}
+        QueryStringsConfig: {QueryStringBehavior: none}
+        HeadersConfig:
+          HeaderBehavior: whitelist
+          Headers: [Content-Type, X-Sandbox-Token, X-Judge-Key, Idempotency-Key]
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Condition: Enabled
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: assets
+            DomainName: !GetAtt WebAssets.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccess.Id
+            S3OriginConfig: {OriginAccessIdentity: ''}
+          - Id: api
+            DomainName: !Sub '${Api}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
+            CustomOriginConfig: {OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2]}
+        DefaultCacheBehavior:
+          TargetOriginId: assets
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        CacheBehaviors:
+          - PathPattern: '/api/*'
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: !Ref ForwardHeaders
+  AssetsPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: Enabled
+    Properties:
+      Bucket: !Ref WebAssets
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub '${WebAssets.Arn}/*'
+            Condition:
+              StringEquals: {AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'}
+Outputs:
+  ApiId:
+    Condition: Enabled
+    Description: Pin this exact ID in the app provisioning policy and NetworkApiId parameter.
+    Value: !Ref Api
+  DistributionDomainName:
+    Condition: Enabled
+    Description: Supply to the application's NetworkDomainName parameter.
+    Value: !GetAtt Distribution.DomainName
+  DistributionId:
+    Condition: Enabled
+    Description: Owner-managed distribution identifier for shutdown and diagnostics.
+    Value: !Ref Distribution
+  WebBucket:
+    Condition: Enabled
+    Description: Private frontend publication target; retained on deletion.
+    Value: !Ref WebAssets
+  DemoUrl:
+    Condition: Enabled
+    Description: Not a working demo until the app and frontend are deployed.
+    Value: !Sub 'https://${Distribution.DomainName}'

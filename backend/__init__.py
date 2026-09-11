@@ -1,0 +1,1 @@
+"""NeighborGear coordination backend."""

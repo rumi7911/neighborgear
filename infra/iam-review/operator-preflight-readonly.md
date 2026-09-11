@@ -1,0 +1,15 @@
+# Operator read-only preflight — prepared 10 September 2026
+
+Status: attached after explicit owner approval on 10 September 2026 as the inline policy `NeighborGearPreflightReadOnly` on NeighborGearOperator. The administrator console confirmed creation; its saved JSON was expanded and verified against the two reviewed statements with the real account substituted. MFA remained enabled. This is separate from the OAuth sign-in policy and from the unactivated deployer-role draft.
+
+Live verification through the non-root plugin succeeded for STS identity and all four approved reads. The user has one attached managed policy (AWSMCPSignInOAuthAccessPolicy), one inline policy (NeighborGearPreflightReadOnly), and no groups. Ireland Lambda reports concurrency 10, unreserved concurrency 10, function count 0 and total code usage 0. No deployment, invocation, quota change or additional permission was performed. This is positive execution evidence for these reads, not a full effective-permissions audit or negative IAM simulation.
+
+`operator-preflight-readonly.json` contains exactly the four operations approved for preparation: the user's own attached-policy list, inline-policy-name list, group-membership list, and Ireland Lambda account settings. `${AccountId}` is a repository placeholder, not an IAM variable: replace it privately with the STS-verified account before console review. Do not attach the unresolved file.
+
+The three IAM operations support an exact user ARN. Lambda GetAccountSettings does not support resource-level scoping; Resource `*` applies only to that single read action and is constrained to eu-west-1 with aws:RequestedRegion. It returns regional account limits and aggregate usage, not function code, secrets or permission to invoke functions.
+
+Operation/action mappings and resource support were checked against the official programmatic [IAM reference](https://servicereference.us-east-1.amazonaws.com/v1/iam/iam.json) and [Lambda reference](https://servicereference.us-east-1.amazonaws.com/v1/lambda/lambda.json). Each operation maps to exactly its same-named action, without dependent actions. The region condition is documented in [AWS global condition keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-requestedregion). This task uses the IAM skill's named-operation path, not source-code policy generation.
+
+This grant does not inspect policy document contents or group policies and must not be represented as a complete effective-permissions audit. It grants no IAM writes, role assumption, resource creation/deletion, model invocation, billing access or quota changes. It adds no explicit deny: other policies still contribute to effective access. MFA is unchanged.
+
+Before attachment: verify the target user/account, render the placeholder, review the two statements and obtain action-time approval. After attachment: verify the exact inline policy contents and repeat the four preflight reads. A failure is not permission to broaden access automatically. Local JSON/action/scope checks are not AWS Access Analyzer validation or IAM simulation.

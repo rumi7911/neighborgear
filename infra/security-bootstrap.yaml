@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Owner-only NeighborGear security scaffold. Roles are quarantined; not deployment-ready.
+Parameters:
+  EnableBootstrap:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Owner approval to create the scaffold only, not to enable deployment access.
+Conditions:
+  Approved: !Equals [!Ref EnableBootstrap, 'true']
+Resources:
+  DemoControls:
+    Type: AWS::DynamoDB::Table
+    Condition: Approved
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: neighborgear-demo-controls
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{AttributeName: pk, AttributeType: S}]
+      KeySchema: [{AttributeName: pk, KeyType: HASH}]
+      SSESpecification: {SSEEnabled: true}
+  Artifacts:
+    Type: AWS::S3::Bucket
+    Condition: Approved
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub 'neighborgear-artifacts-${AWS::AccountId}-${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      VersioningConfiguration: {Status: Enabled}
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload: {DaysAfterInitiation: 1}
+          - Id: ExpireOldArtifactVersions
+            Status: Enabled
+            NoncurrentVersionExpiration: {NoncurrentDays: 7}
+  ArtifactTransportPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: Approved
+    Properties:
+      Bucket: !Ref Artifacts
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: [!GetAtt Artifacts.Arn, !Sub '${Artifacts.Arn}/*']
+            Condition:
+              Bool: {aws:SecureTransport: 'false'}
+  Deployer:
+    Type: AWS::IAM::Role
+    Condition: Approved
+    Properties:
+      RoleName: NeighborGearDeployer
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/NeighborGearOperator'
+            Action: sts:AssumeRole
+            Condition:
+              Bool: {aws:MultiFactorAuthPresent: 'true'}
+      Policies:
+        - PolicyName: DeploymentQuarantine
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement: [{Effect: Deny, Action: '*', Resource: '*'}]
+  CloudFormation:
+    Type: AWS::IAM::Role
+    Condition: Approved
+    Properties:
+      RoleName: NeighborGearCloudFormation
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudformation.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DeploymentQuarantine
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement: [{Effect: Deny, Action: '*', Resource: '*'}]
+Outputs:
+  ControlTableName:
+    Condition: Approved
+    Description: Owner initializes CONTROL separately after approval; absent record keeps the app stopped.
+    Value: !Ref DemoControls
+  ArtifactBucketName:
+    Condition: Approved
+    Description: Supply this value to the separate owner boundary template after review.
+    Value: !Ref Artifacts
+  DeployerRoleArn:
+    Condition: Approved
+    Description: Quarantined role; operator permissions are deliberately not attached.
+    Value: !GetAtt Deployer.Arn
+  CloudFormationRoleArn:
+    Condition: Approved
+    Description: Quarantined role; no infrastructure-provisioning grant is attached.
+    Value: !GetAtt CloudFormation.Arn

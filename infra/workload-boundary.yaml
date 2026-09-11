@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Owner-only NeighborGear workload ceiling. Review before enabling; not an identity grant.
+Parameters:
+  EnableBoundary:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['false', 'true']
+  ApplicationStackName:
+    Type: String
+    Default: neighborgear-demo
+    AllowedValues: [neighborgear-demo]
+  ArtifactBucketName:
+    Type: String
+    AllowedPattern: '[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]'
+    Description: Owner-controlled private artifact bucket, not created by this template.
+Conditions:
+  Approved: !Equals [!Ref EnableBoundary, 'true']
+Resources:
+  WorkloadBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: Approved
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      ManagedPolicyName: NeighborGearWorkloadBoundary
+      Description: Fixed owner-managed ceiling for the five NeighborGear workload roles.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ReadOnlyOwnerStopControl
+            Effect: Allow
+            Action: [dynamodb:GetItem]
+            Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ApplicationStackName}-controls'
+          - Sid: ProjectRecords
+            Effect: Allow
+            Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:Scan]
+            Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ApplicationStackName}-records'
+          - Sid: ProjectWorkQueue
+            Effect: Allow
+            Action: [sqs:SendMessage, sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+            Resource: !Sub 'arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${ApplicationStackName}-work.fifo'
+          - Sid: ReadProjectArtifacts
+            Effect: Allow
+            Action: [s3:GetObject]
+            Resource: !Sub 'arn:${AWS::Partition}:s3:::${ArtifactBucketName}/agent/*'
+            Condition:
+              StringEquals: {s3:ResourceAccount: !Ref 'AWS::AccountId'}
+          - Sid: WriteFictionalSessions
+            Effect: Allow
+            Action: [s3:PutObject]
+            Resource: !Sub 'arn:${AWS::Partition}:s3:::${ApplicationStackName}-${AWS::AccountId}-${AWS::Region}-sessions/sessions/*'
+            Condition:
+              StringEquals: {s3:ResourceAccount: !Ref 'AWS::AccountId'}
+          - Sid: InvokeProjectRuntime
+            Effect: Allow
+            Action: [bedrock-agentcore:InvokeAgentRuntime]
+            Resource: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:runtime/NeighborGear_${AWS::AccountId}-*'
+          - Sid: InvokeReminderSweep
+            Effect: Allow
+            Action: [lambda:InvokeFunction]
+            Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ApplicationStackName}-sweep'
+          - Sid: ApprovedProfile
+            Effect: Allow
+            Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+            Resource: !Sub 'arn:${AWS::Partition}:bedrock:eu-west-1:${AWS::AccountId}:inference-profile/eu.amazon.nova-lite-v1:0'
+          - Sid: ApprovedDestinationModels
+            Effect: Allow
+            Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:bedrock:eu-west-1::foundation-model/amazon.nova-lite-v1:0'
+              - !Sub 'arn:${AWS::Partition}:bedrock:eu-west-3::foundation-model/amazon.nova-lite-v1:0'
+              - !Sub 'arn:${AWS::Partition}:bedrock:eu-central-1::foundation-model/amazon.nova-lite-v1:0'
+              - !Sub 'arn:${AWS::Partition}:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0'
+            Condition:
+              ArnEquals:
+                bedrock:InferenceProfileArn: !Sub 'arn:${AWS::Partition}:bedrock:eu-west-1:${AWS::AccountId}:inference-profile/eu.amazon.nova-lite-v1:0'
+          - Sid: ProjectLambdaLogs
+            Effect: Allow
+            Action: [logs:CreateLogStream, logs:PutLogEvents]
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ApplicationStackName}-api:*'
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ApplicationStackName}-worker:*'
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ApplicationStackName}-sweep:*'
+          - Sid: ProjectRuntimeLogs
+            Effect: Allow
+            Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+            Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/NeighborGear_${AWS::AccountId}-*'
+Outputs:
+  WorkloadBoundaryArn:
+    Condition: Approved
+    Description: Supply this fixed owner-controlled boundary to project workload roles.
+    Value: !Ref WorkloadBoundary

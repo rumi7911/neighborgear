@@ -1,0 +1,400 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: NeighborGear protected fictional sandbox; disabled until credit verification.
+Parameters:
+  EnableResources:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  CreditsVerified:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  Mode:
+    Type: String
+    Default: simulator
+    AllowedValues: [simulator, live]
+  JudgeKey:
+    Type: String
+    NoEcho: true
+    MinLength: 24
+    Description: Private judge creation key; never embed in frontend assets.
+  CodeBucket:
+    Type: String
+    Description: Existing private bucket holding the verified ARM64 code archive.
+  CodeKey:
+    Type: String
+    AllowedPattern: 'agent/.+'
+    Description: Immutable S3 key for the AgentCore archive.
+  NetworkApiId:
+    Type: String
+    AllowedPattern: '[a-z0-9]+'
+    Description: Verified ApiId output from the separately approved owner network stack.
+  NetworkDomainName:
+    Type: String
+    AllowedPattern: '[a-z0-9]+\.cloudfront\.net'
+    Description: Verified DistributionDomainName output from the owner network stack.
+  MaxLiveRuns:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 10
+Rules:
+  CreditGate:
+    RuleCondition: !Equals [!Ref EnableResources, 'true']
+    Assertions:
+      - Assert: !Equals [!Ref CreditsVerified, 'true']
+        AssertDescription: Verify issued credits and projected costs before enabling any resources.
+Conditions:
+  Enabled: !Equals [!Ref EnableResources, 'true']
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    CodeUri: ../output/cloud-package/
+    MemorySize: 512
+    Timeout: 20
+    Environment:
+      Variables:
+        NEIGHBORGEAR_TABLE: !Ref Records
+        NEIGHBORGEAR_CONTROL_TABLE: !Sub '${AWS::StackName}-controls'
+        NEIGHBORGEAR_QUEUE_URL: !Ref Queue
+        NEIGHBORGEAR_MODE: !Ref Mode
+        NEIGHBORGEAR_CREDITS_VERIFIED: !Ref CreditsVerified
+        NEIGHBORGEAR_SKIP_DEFAULT_APP: 'true'
+Resources:
+  Records:
+    Type: AWS::DynamoDB::Table
+    Condition: Enabled
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub '${AWS::StackName}-records'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{AttributeName: pk, AttributeType: S}]
+      KeySchema: [{AttributeName: pk, KeyType: HASH}]
+      TimeToLiveSpecification: {AttributeName: expires_at, Enabled: true}
+      SSESpecification: {SSEEnabled: true}
+  DeadLetters:
+    Type: AWS::SQS::Queue
+    Condition: Enabled
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-dead-letters.fifo'
+      FifoQueue: true
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+  Queue:
+    Type: AWS::SQS::Queue
+    Condition: Enabled
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-work.fifo'
+      FifoQueue: true
+      VisibilityTimeout: 600
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetters.Arn
+        maxReceiveCount: 4
+  Sessions:
+    Type: AWS::S3::Bucket
+    Condition: Enabled
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-${AWS::AccountId}-${AWS::Region}-sessions'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: [{ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}}]
+      PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
+      LifecycleConfiguration:
+        Rules: [{Id: ExpireFictionalSessions, Status: Enabled, ExpirationInDays: 7}]
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Condition: Enabled
+    DependsOn: [ApiLogs]
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-api'
+      Role: !GetAtt ApiRole.Arn
+      Handler: infra.handlers.api_handler
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          NEIGHBORGEAR_JUDGE_KEY: !Ref JudgeKey
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Condition: Enabled
+    Properties:
+      ApiId: !Ref NetworkApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiFunction.Arn
+      IntegrationMethod: POST
+      PayloadFormatVersion: '2.0'
+      TimeoutInMillis: 20000
+  ApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Condition: Enabled
+    DependsOn: [ApiInvokePermission]
+    Properties:
+      ApiId: !Ref NetworkApiId
+      RouteKey: 'ANY /api/{proxy+}'
+      AuthorizationType: NONE
+      Target: !Sub 'integrations/${ApiIntegration}'
+  ApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: Enabled
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${NetworkApiId}/*/*/api/*'
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Condition: Enabled
+    DependsOn: [WorkerLogs]
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-worker'
+      Role: !GetAtt WorkerRole.Arn
+      Handler: infra.handlers.worker_handler
+      Timeout: 100
+      ReservedConcurrentExecutions: 1
+      Environment:
+        Variables:
+          NEIGHBORGEAR_RUNTIME_ARN: !GetAtt AgentRuntime.AgentRuntimeArn
+      Events:
+        Work:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt Queue.Arn
+            BatchSize: 1
+            FunctionResponseTypes: [ReportBatchItemFailures]
+  SweepFunction:
+    Type: AWS::Serverless::Function
+    Condition: Enabled
+    DependsOn: [SweepLogs]
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-sweep'
+      Role: !GetAtt SweepRole.Arn
+      Handler: infra.handlers.sweep_handler
+      Timeout: 60
+      ReservedConcurrentExecutions: 1
+      Events:
+        Reminders:
+          Type: ScheduleV2
+          Properties:
+            GroupName: !Ref ReminderGroup
+            RoleArn: !GetAtt SchedulerRole.Arn
+            ScheduleExpression: rate(5 minutes)
+            FlexibleTimeWindow: {Mode: 'OFF'}
+            RetryPolicy: {MaximumRetryAttempts: 2, MaximumEventAgeInSeconds: 600}
+  ApiRole:
+    Type: AWS::IAM::Role
+    Condition: Enabled
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-Api'
+      Path: !Sub '/${AWS::StackName}/'
+      PermissionsBoundary: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/NeighborGearWorkloadBoundary'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ApiDataAndQueue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:GetItem]
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-controls'
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:Scan]
+                Resource: !GetAtt Records.Arn
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt Queue.Arn
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-api:*'
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Condition: Enabled
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-Worker'
+      Path: !Sub '/${AWS::StackName}/'
+      PermissionsBoundary: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/NeighborGearWorkloadBoundary'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ConsumeQueueAndInvokeRuntime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:GetItem]
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-controls'
+              - Effect: Allow
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+                Resource: !GetAtt Queue.Arn
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeAgentRuntime
+                Resource: !GetAtt AgentRuntime.AgentRuntimeArn
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-worker:*'
+  SweepRole:
+    Type: AWS::IAM::Role
+    Condition: Enabled
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-Sweep'
+      Path: !Sub '/${AWS::StackName}/'
+      PermissionsBoundary: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/NeighborGearWorkloadBoundary'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SweepDataAndQueue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:GetItem]
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-controls'
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:Scan]
+                Resource: !GetAtt Records.Arn
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt Queue.Arn
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-sweep:*'
+  ReminderGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Condition: Enabled
+    Properties:
+      Name: !Sub '${AWS::StackName}-reminders'
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Condition: Enabled
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-Scheduler'
+      Path: !Sub '/${AWS::StackName}/'
+      PermissionsBoundary: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/NeighborGearWorkloadBoundary'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: scheduler.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {aws:SourceAccount: !Ref 'AWS::AccountId'}
+              ArnEquals: {aws:SourceArn: !GetAtt ReminderGroup.Arn}
+      Policies:
+        - PolicyName: InvokeOnlySweep
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt SweepFunction.Arn
+  RuntimeRole:
+    Type: AWS::IAM::Role
+    Condition: Enabled
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-Runtime'
+      Path: !Sub '/${AWS::StackName}/'
+      PermissionsBoundary: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/NeighborGearWorkloadBoundary'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: bedrock-agentcore.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {aws:SourceAccount: !Ref 'AWS::AccountId'}
+      Policies:
+        - PolicyName: NeighborGearRuntime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:GetItem]
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-controls'
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:Scan]
+                Resource: !GetAtt Records.Arn
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${CodeBucket}/${CodeKey}'
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub '${Sessions.Arn}/sessions/*'
+              - Effect: Allow
+                Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.amazon.nova-lite-v1:0'
+              - Effect: Allow
+                Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:bedrock:eu-west-1::foundation-model/amazon.nova-lite-v1:0'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:eu-west-3::foundation-model/amazon.nova-lite-v1:0'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:eu-central-1::foundation-model/amazon.nova-lite-v1:0'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0'
+                Condition:
+                  ArnEquals:
+                    bedrock:InferenceProfileArn: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.amazon.nova-lite-v1:0'
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/NeighborGear_${AWS::AccountId}-*'
+  AgentRuntime:
+    Type: AWS::BedrockAgentCore::Runtime
+    Condition: Enabled
+    Properties:
+      AgentRuntimeName: !Sub 'NeighborGear_${AWS::AccountId}'
+      Tags: {Project: NeighborGear}
+      RoleArn: !GetAtt RuntimeRole.Arn
+      ProtocolConfiguration: HTTP
+      NetworkConfiguration: {NetworkMode: PUBLIC}
+      LifecycleConfiguration: {IdleRuntimeSessionTimeout: 60, MaxLifetime: 300}
+      AgentRuntimeArtifact:
+        CodeConfiguration:
+          Code:
+            S3: {Bucket: !Ref CodeBucket, Prefix: !Ref CodeKey}
+          Runtime: PYTHON_3_12
+          EntryPoint: [agentcore_entry.py]
+      EnvironmentVariables:
+        NEIGHBORGEAR_TABLE: !Ref Records
+        NEIGHBORGEAR_CONTROL_TABLE: !Sub '${AWS::StackName}-controls'
+        NEIGHBORGEAR_SESSION_BUCKET: !Ref Sessions
+        NEIGHBORGEAR_CREDITS_VERIFIED: !Ref CreditsVerified
+        NEIGHBORGEAR_MAX_LIVE_RUNS: !Ref MaxLiveRuns
+        BEDROCK_MODEL_ID: eu.amazon.nova-lite-v1:0
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    Condition: Enabled
+    Properties: {LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-api', RetentionInDays: 7}
+  WorkerLogs:
+    Type: AWS::Logs::LogGroup
+    Condition: Enabled
+    Properties: {LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-worker', RetentionInDays: 7}
+  SweepLogs:
+    Type: AWS::Logs::LogGroup
+    Condition: Enabled
+    Properties: {LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-sweep', RetentionInDays: 7}
+Outputs:
+  DemoUrl:
+    Condition: Enabled
+    Value: !Sub 'https://${NetworkDomainName}'
+  WebBucket:
+    Condition: Enabled
+    Value: !Sub '${AWS::StackName}-${AWS::AccountId}-${AWS::Region}-web'
+  RuntimeArn:
+    Condition: Enabled
+    Value: !GetAtt AgentRuntime.AgentRuntimeArn

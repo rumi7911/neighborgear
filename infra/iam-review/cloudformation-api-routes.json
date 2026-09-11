@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateRoutesAndIntegrationOnlyInsideOwnerApi",
+      "Effect": "Allow",
+      "Action": ["apigateway:POST"],
+      "Resource": [
+        "arn:aws:apigateway:eu-west-1::/apis/${ApiId}/integrations",
+        "arn:aws:apigateway:eu-west-1::/apis/${ApiId}/routes"
+      ]
+    },
+    {
+      "Sid": "ManageRoutesAndIntegrationOnlyInsideOwnerApi",
+      "Effect": "Allow",
+      "Action": ["apigateway:GET", "apigateway:PATCH", "apigateway:DELETE"],
+      "Resource": [
+        "arn:aws:apigateway:eu-west-1::/apis/${ApiId}/integrations/*",
+        "arn:aws:apigateway:eu-west-1::/apis/${ApiId}/routes/*"
+      ]
+    }
+  ]
+}
