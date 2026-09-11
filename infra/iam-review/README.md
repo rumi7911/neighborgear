@@ -1,10 +1,14 @@
 # Access-policy review checkpoint
 
-## Live access update — 10 September 2026
+## Live access update — 11 September 2026
+
+Latest: the plugin is freshly verified as NeighborGearOperator, not root. Lambda reports 1,000 concurrent and 1,000 unreserved executions, zero functions and zero code storage. After separate exact owner approval, the preflight inline policy now also permits only `access-analyzer:ValidatePolicy` and `iam:SimulateCustomPolicy`. Access Analyzer returned zero findings for the operator, deployer, runtime-Bedrock, preflight and assembled CloudFormation service-role identity policies. Positive and negative simulations allowed the exact intended paths while denying missing MFA, a wrong CloudFormation role, another passable role, another table, a missing inference-profile context and another model. AgentCore Instances capacity remained explicitly denied. The API-ID and workload-identity values used for syntax/simulation were review-only placeholders because those resources do not exist yet; they must be replaced and revalidated after owner prerequisite creation. No deployment or model invocation occurred.
+
+### Historical 10 September checkpoint
 
 Latest: the owner approved attaching NeighborGearPreflightReadOnly; IAM confirmed creation and the saved two-statement JSON matched the reviewed scope. All four reads then succeeded via NeighborGearOperator. Lambda Ireland concurrency/unreserved remain 10/10 with zero functions. See [the updated verification record](operator-preflight-readonly.md). Earlier statements below about this policy being unattached and these four reads being denied are historical; no deployment grants were activated.
 
-Prepared, not attached: [operator-preflight-readonly.json](operator-preflight-readonly.json) and its [scope review](operator-preflight-readonly.md) define only the four read operations approved for preparation. This does not activate deployment access.
+[operator-preflight-readonly.json](operator-preflight-readonly.json) and its [scope review](operator-preflight-readonly.md) now mirror the six approved non-mutating operations. This does not activate deployment access.
 
 Supersedes older reauthentication/root-identity blockers below: after explicit owner approval, attached only the AWS-managed `AWSMCPSignInOAuthAccessPolicy` directly to NeighborGearOperator through the owner console. Read-back showed one attached policy and console access Enabled with MFA. The reconnected plugin successfully executed STS GetCallerIdentity as NeighborGearOperator in the expected account, not root. No static keys, deployment roles or application resources were created.
 

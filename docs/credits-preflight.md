@@ -14,6 +14,8 @@ Amazon Nova Lite's documented EU inference profile is `eu.amazon.nova-lite-v1:0`
 
 Local AWS CLI access is not configured, and the AWS plugin connection expired during this checkpoint. Live non-root IAM validation, deployment-role activation and cloud deployment therefore remain pending. No static access keys will be created as a shortcut.
 
+Later on 11 September, the plugin was reconnected and STS verified NeighborGearOperator rather than root. The live Lambda API confirmed 1,000 concurrent and unreserved executions, zero functions and zero code storage. After an exact owner approval, the existing preflight inline policy gained only the two non-mutating policy-validation actions. Access Analyzer returned zero findings across the five reviewed identity-policy bundles, and positive/negative IAM simulations enforced the intended MFA, role, resource and model boundaries. Review-only placeholders for resources that do not exist yet still require replacement and revalidation. Deployment permissions and paid invocation remain disabled.
+
 Pricing sources: [AgentCore](https://aws.amazon.com/bedrock/agentcore/pricing/), [Nova Lite](https://aws.amazon.com/blogs/machine-learning/customizing-text-content-moderation-with-amazon-nova/), and [Lambda](https://aws.amazon.com/lambda/pricing/). Model reference: [Amazon Nova Lite model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-lite.html).
 
 ## Quota request checkpoint — 10 September 2026 (historical)
