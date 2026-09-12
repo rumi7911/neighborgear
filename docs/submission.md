@@ -39,8 +39,8 @@ The evaluation suite measures workflow completion, errors, and latency. Time sav
 - The local MVP is complete and the Python suite has passed 131 tests.
 - The public repository, MIT licence, README and architecture diagram are available.
 - AWS credits and gross-cost alerts are verified. The network and quarantined security scaffolds are deployed in `eu-west-1`; no application compute or model run has been enabled.
-- The review-only change set `neighborgear-workload-boundary-review-20260912` is `CREATE_COMPLETE` and contains exactly one proposed addition: an unattached `AWS::IAM::ManagedPolicy`. It has not been executed.
-- The critical path is: approve and execute the boundary; finish and review exact deployment policies; deploy the protected simulator; prove shutdown; run one bounded live case; complete the ten-scenario evaluation; publish the demo/video/article; complete the Devpost fields; then run final preflight and submit.
+- The approved change set `neighborgear-workload-boundary-review-20260912` was executed. Stack `neighborgear-workload-boundary` and its sole resource, the unattached `AWS::IAM::ManagedPolicy`, reached `CREATE_COMPLETE`.
+- The critical path is: finish and review exact deployment policies; deploy the protected simulator; prove shutdown; run one bounded live case; complete the ten-scenario evaluation; publish the demo/video/article; complete the Devpost fields; then run final preflight and submit.
 - Submission closes at **15 September 2026, 01:00 Europe/London**. The internal target remains **14 September 2026, 20:00 Europe/London**.
 
 Nothing in this document is a submission or a claim that publication has occurred.
