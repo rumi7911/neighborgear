@@ -27,7 +27,8 @@
       "Effect": "Allow",
       "Action": [
         "access-analyzer:ValidatePolicy",
-        "iam:SimulateCustomPolicy"
+        "iam:SimulateCustomPolicy",
+        "iam:GetContextKeysForCustomPolicy"
       ],
       "Resource": "*"
     }
