@@ -59,7 +59,7 @@ Resources:
             Action: 's3:*'
             Resource: [!GetAtt Artifacts.Arn, !Sub '${Artifacts.Arn}/*']
             Condition:
-              Bool: {aws:SecureTransport: 'false'}
+              Bool: {aws:SecureTransport: false}
   Deployer:
     Type: AWS::IAM::Role
     Condition: Approved
