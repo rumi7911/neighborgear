@@ -25,12 +25,22 @@ Reliable coordination requires more than a plausible answer: reservations must r
 The evaluation suite measures workflow completion, errors, and latency. Time savings, financial savings, and improvements to real equipment access remain hypotheses until tested with an actual charity. Do not substitute simulated counts for real-world impact.
 
 ## Submission checklist
-- [ ] Verify entrant eligibility and registration; obtain AWS Builder ID.
+- [x] Verify entrant eligibility and registration; obtain AWS Builder ID.
 - [x] Publish repository, README, MIT licence, architecture diagram, and reproducible setup.
 - [ ] Verify live model execution and retain evaluation evidence.
 - [ ] Make a public video of at most five minutes showing the working project.
 - [ ] Supply testing instructions and the verified demo URL if deployed.
 - [ ] Publish the build article and include its actual URL.
 - [ ] Confirm every required Devpost field before submitting.
+
+## Status on 12 September 2026
+
+- Devpost project `NeighborGear` exists as a **draft**. It has not been submitted or published.
+- The local MVP is complete and the Python suite has passed 131 tests.
+- The public repository, MIT licence, README and architecture diagram are available.
+- AWS credits and gross-cost alerts are verified. The network and quarantined security scaffolds are deployed in `eu-west-1`; no application compute or model run has been enabled.
+- The review-only change set `neighborgear-workload-boundary-review-20260912` is `CREATE_COMPLETE` and contains exactly one proposed addition: an unattached `AWS::IAM::ManagedPolicy`. It has not been executed.
+- The critical path is: approve and execute the boundary; finish and review exact deployment policies; deploy the protected simulator; prove shutdown; run one bounded live case; complete the ten-scenario evaluation; publish the demo/video/article; complete the Devpost fields; then run final preflight and submit.
+- Submission closes at **15 September 2026, 01:00 Europe/London**. The internal target remains **14 September 2026, 20:00 Europe/London**.
 
 Nothing in this document is a submission or a claim that publication has occurred.
