@@ -2,9 +2,9 @@
 
 ## Network change-set checkpoint — 12 September 2026
 
-Created the review-only CloudFormation change set `neighborgear-network-review-20260912` for stack `neighborgear-network` in `eu-west-1`. Its captured inputs are `ApplicationStackName=neighborgear-demo`, `CreditsVerified=true` and `EnableNetwork=true`. CloudFormation reports `CREATE_COMPLETE` / `AVAILABLE`, and all supported deployment validations passed.
+Created the review-only CloudFormation change set `neighborgear-network-review-20260912` for stack `neighborgear-network` in `eu-west-1`. Its captured inputs were `ApplicationStackName=neighborgear-demo`, `CreditsVerified=true` and `EnableNetwork=true`. CloudFormation reported `CREATE_COMPLETE` / `AVAILABLE`, and all supported deployment validations passed.
 
-The preview contains exactly seven additions: the HTTP API and default stage, private S3 web bucket and bucket policy, CloudFront distribution, origin access control and origin request policy. The stack remains `REVIEW_IN_PROGRESS` with **zero deployed resources**. The change set has not been executed, and no model was invoked. Execution still requires a fresh explicit owner approval after reviewing the cost exposure and shutdown plan.
+After a fresh explicit owner approval, executed exactly that seven-addition change set with rollback-all and deletion of newly created resources on failure. CloudFormation reached `CREATE_COMPLETE`: the HTTP API and default stage, private S3 web bucket and bucket policy, CloudFront distribution, origin access control and origin request policy all completed successfully. The five stack outputs were captured only in a gitignored local environment file; account-specific identifiers remain outside the public repository. No application compute, business data or model invocation has been deployed yet.
 
 ## Quota approval checkpoint — 11 September 2026
 
