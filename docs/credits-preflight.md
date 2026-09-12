@@ -1,5 +1,11 @@
 # Credits and deployment gate
 
+## Security bootstrap checkpoint — 12 September 2026
+
+Immediately before execution, a fresh owner Billing console check showed **$120.00 total and estimated promotional credit remaining, $0.00 used**, across two active credits expiring 5 September 2027. After an explicit action-time owner approval, the prevalidated `neighborgear-security-review-20260912` change set was executed in Ireland. Stack `neighborgear-security` reached `CREATE_COMPLETE`; all five resources completed: the private encrypted/versioned artifact bucket, its TLS-only policy, the retained on-demand control table, and two one-hour, deny-all-quarantined deployment roles.
+
+The execution did not activate deployment access, initialize the application enable record, deploy application compute or invoke a model. A post-deployment AWS connector readback was denied across CloudFormation, IAM, S3 and DynamoDB because NeighborGearOperator remains intentionally narrow; the root console provided the stack/resource status evidence. Remaining policy assembly, workload boundary creation, role activation and application deployment are separate gates.
+
 ## Network change-set checkpoint — 12 September 2026
 
 Created the review-only CloudFormation change set `neighborgear-network-review-20260912` for stack `neighborgear-network` in `eu-west-1`. Its captured inputs were `ApplicationStackName=neighborgear-demo`, `CreditsVerified=true` and `EnableNetwork=true`. CloudFormation reported `CREATE_COMPLETE` / `AVAILABLE`, and all supported deployment validations passed.
@@ -34,7 +40,7 @@ Read-only preflight completed, 10 September: owner-approved NeighborGearPrefligh
 
 Latest access checkpoint, 10 September: the OAuth sign-in policy was attached with owner approval, MFA remains enabled, and STS verified the reconnected plugin as NeighborGearOperator (not root). The next preflight's self-policy/group listings and Ireland Lambda GetAccountSettings were all denied for missing identity permissions. Reauthentication is no longer the blocker; scoped read access and subsequent deployment authorization remain pending. No quota increase, deployment or model invocation occurred.
 
-Status: **quota, credit-balance, planning-cost and exact deployed-API policy gates verified; application deployment and paid Bedrock evaluation remain disabled pending completion of the security bootstrap, remaining live IAM validation and explicit deployment/invocation approvals.** Only the previously approved monitoring budget, operator sign-in setup and owner-managed network prerequisite have been created in AWS.
+Status: **quota, credit-balance, planning-cost, exact deployed-API policy and quarantined security-scaffold gates verified; application deployment and paid Bedrock evaluation remain disabled pending remaining policy assembly, workload-boundary creation, role activation, live IAM validation and explicit deployment/invocation approvals.** The approved monitoring budget, operator sign-in setup, owner-managed network prerequisite and quarantined security scaffold now exist in AWS.
 
 ## Access-policy checkpoint — 9 September 2026
 

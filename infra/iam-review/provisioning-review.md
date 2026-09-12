@@ -1,6 +1,6 @@
 # Provisioning review — updated 12 September 2026
 
-**The owner network prerequisite is deployed. The application policies and security bootstrap remain review-only drafts: do not attach or deploy them yet.**
+**The owner network prerequisite and deny-all-quarantined security scaffold are deployed. Application policies, the workload boundary and role activation remain review-only: do not attach or deploy them yet.**
 
 ## Prepared artifacts
 
@@ -40,11 +40,11 @@ All action names and supported resource types in this component were checked aga
 
 ## Owner scaffold, deliberately locked
 
-`infra/security-bootstrap.yaml` creates nothing by default. If separately approved and enabled by an owner in Ireland, it would create a private, encrypted, versioned artifact bucket and two one-hour deployment roles. Both roles have an explicit **deny-all quarantine** policy. There are no user attachments, credentials, broad managed policies or application resources. The Deployer trust retains the exact existing operator and MFA requirement. The CloudFormation trust uses AWS's documented service principal; no unsupported stack SourceArn condition is assumed.
+`infra/security-bootstrap.yaml` creates nothing by default. After separate review and an explicit action-time owner approval, it was enabled and executed in Ireland on 12 September 2026. CloudFormation created the private, encrypted, versioned artifact bucket, retained on-demand control table, TLS-only bucket policy and two one-hour deployment roles; all five resources reached `CREATE_COMPLETE`. Both roles retain an explicit **deny-all quarantine** policy. There are no user attachments, credentials, broad managed policies or application resources. The Deployer trust retains the exact existing operator and MFA requirement. The CloudFormation trust uses AWS's documented service principal; no unsupported stack SourceArn condition is assumed.
 
 The workload boundary remains in the separate disabled `infra/workload-boundary.yaml`. Its ArtifactBucketName must match the scaffold output. These are account-global named IAM resources: do not create duplicate security stacks in other regions. The artifact bucket retains current versions on stack deletion; obsolete noncurrent versions expire after seven days and incomplete multipart uploads after one day. Retained storage is not a zero-cost guarantee.
 
-Do not create even the locked scaffold until credits/costs and its exact change set have been approved. The quarantine has **no enable parameter**: replacing it requires an owner-reviewed template change after complete permission validation. Attaching an Allow policy alongside the quarantine will not unlock a role.
+The scaffold's credit/cost and exact-change-set approvals are recorded in [its execution review](security-changeset-review.md). The quarantine has **no enable parameter**: replacing it requires an owner-reviewed template change after complete permission validation. Attaching an Allow policy alongside the quarantine will not unlock a role.
 
 ## Unresolved before a complete deployment policy
 
