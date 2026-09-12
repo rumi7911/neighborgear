@@ -1,5 +1,11 @@
 # Credits and deployment gate
 
+## Network change-set checkpoint — 12 September 2026
+
+Created the review-only CloudFormation change set `neighborgear-network-review-20260912` for stack `neighborgear-network` in `eu-west-1`. Its captured inputs are `ApplicationStackName=neighborgear-demo`, `CreditsVerified=true` and `EnableNetwork=true`. CloudFormation reports `CREATE_COMPLETE` / `AVAILABLE`, and all supported deployment validations passed.
+
+The preview contains exactly seven additions: the HTTP API and default stage, private S3 web bucket and bucket policy, CloudFront distribution, origin access control and origin request policy. The stack remains `REVIEW_IN_PROGRESS` with **zero deployed resources**. The change set has not been executed, and no model was invoked. Execution still requires a fresh explicit owner approval after reviewing the cost exposure and shutdown plan.
+
 ## Quota approval checkpoint — 11 September 2026
 
 AWS Support reports the Ireland Lambda Concurrent executions request as fully approved at 1,000. A fresh root-console check of quota `L-B99A9384` in `eu-west-1` then verified **Applied account-level quota value: 1,000** and utilization of 0. The template's 2 + 1 + 1 reserved concurrency settings are therefore compatible with AWS's requirement to retain 100 unreserved executions, assuming a final pre-deployment check still shows no competing reservations. This clears the Lambda quota gate only; it does not authorize deployment, model invocation, permissions changes or personal spending. The private support case identifier and account evidence are deliberately excluded from this public repository.
