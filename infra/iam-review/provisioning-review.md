@@ -1,6 +1,6 @@
 # Provisioning review — updated 13 September 2026
 
-**The owner network prerequisite, deny-all-quarantined security scaffold and unattached workload boundary are deployed. The simulator activation change set is validated and available but unexecuted; application deployment has not started. Both execution steps require their own owner approvals.**
+**The owner network prerequisite, simulator-scoped security roles and unattached workload boundary are deployed. The reviewed simulator activation completed successfully; application deployment has not started and requires its own change set and owner approval.**
 
 ## Prepared artifacts
 
@@ -44,9 +44,9 @@ All action names and supported resource types in this component were checked aga
 
 The workload boundary was deployed from the separately reviewed `infra/workload-boundary.yaml` after explicit owner approval. Stack `neighborgear-workload-boundary` and its sole, unattached managed policy reached `CREATE_COMPLETE`. Its artifact scope matches the scaffold output. These are account-global named IAM resources: do not create duplicate security stacks in other regions. The artifact bucket retains current versions on stack deletion; obsolete noncurrent versions expire after seven days and incomplete multipart uploads after one day. Retained storage is not a zero-cost guarantee.
 
-The application template now separates simulator and live provisioning. Simulator mode runs the deterministic coordinator inside the worker Lambda and conditions the AgentCore runtime, runtime role and invocation grant on live mode. The private simulator access bundle contains 24 CloudFormation statements and no Bedrock, AgentCore or runtime-role PassRole permission. Its compact review form is 7,609 characters. The security template's activation parameter defaults false and refuses placeholder API/distribution IDs; the deployed roles remain quarantined until a separately approved update executes.
+The application template now separates simulator and live provisioning. Simulator mode runs the deterministic coordinator inside the worker Lambda and conditions the AgentCore runtime, runtime role and invocation grant on live mode. The private simulator access bundle contains 24 CloudFormation statements and no Bedrock, AgentCore or runtime-role PassRole permission. Its compact review form is 7,609 characters. The security template's activation parameter defaults false and refuses placeholder API/distribution IDs. After separate review and approval, the deployed roles now contain this simulator-only bundle.
 
-The scaffold's initial credit/cost and exact-change-set approvals are recorded in [its execution review](security-changeset-review.md). The gated simulator activation is recorded in the [simulator change-set review](simulator-access-changeset-review.md). That update is validated but unexecuted; attaching an Allow policy alongside the current explicit deny would not unlock either role.
+The scaffold's initial credit/cost and exact-change-set approvals are recorded in [its execution review](security-changeset-review.md). The separately approved simulator activation and its successful read-back are recorded in the [simulator change-set review](simulator-access-changeset-review.md).
 
 ## Unresolved before a complete deployment policy
 

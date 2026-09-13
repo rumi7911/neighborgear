@@ -2,7 +2,7 @@
 
 ## Live access update — 13 September 2026
 
-Latest: after exact owner approvals, the seven-resource network stack, five-resource deny-all-quarantined security scaffold and unattached workload boundary completed successfully in Ireland. The deployed HTTP API ID and other outputs are stored only in a gitignored local environment file. On 13 September, CloudFormation created and validated the unexecuted simulator activation change set `neighborgear-simulator-access-review-20260913`. Its [review record](simulator-access-changeset-review.md) confirms exactly two in-place IAM role modifications and one MFA-gated user policy addition, with no replacements or application/model resources. The roles remain quarantined until a separate owner-approved execution. No application compute, business data or model invocation exists yet.
+Latest: after exact owner approvals, the seven-resource network stack, security scaffold and unattached workload boundary completed successfully in Ireland. The deployed HTTP API ID and other outputs are stored only in a gitignored local environment file. On 13 September, CloudFormation validated and then, after a separate action-time owner approval, executed `neighborgear-simulator-access-review-20260913`. Its [review record](simulator-access-changeset-review.md) confirms two in-place IAM role modifications and one MFA-gated user policy addition; all completed successfully with no replacements or application/model resources. The roles now contain the simulator-only deployment grants. No application compute, business data or model invocation exists yet.
 
 ### Historical 10 September checkpoint
 

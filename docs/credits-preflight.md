@@ -2,7 +2,7 @@
 
 ## Simulator activation review — 13 September 2026
 
-Created the standard update change set `neighborgear-simulator-access-review-20260913` for the existing `neighborgear-security` stack in Ireland. CloudFormation reports `CREATE_COMPLETE` / `AVAILABLE`; all supported deployment validations passed. The exact diff contains two in-place IAM role policy changes and one MFA-gated operator assume-role policy, with no replacements, application resources or model runtime. The change set is deliberately unexecuted, so both roles remain quarantined. See the [change-set review](../infra/iam-review/simulator-access-changeset-review.md).
+Created the standard update change set `neighborgear-simulator-access-review-20260913` for the existing `neighborgear-security` stack in Ireland. CloudFormation reported `CREATE_COMPLETE` / `AVAILABLE`; all supported deployment validations passed. The exact diff contained two in-place IAM role policy changes and one MFA-gated operator assume-role policy, with no replacements, application resources or model runtime. After a separate action-time owner approval, the exact change set executed successfully and the security stack reached `UPDATE_COMPLETE`. Application deployment and model invocation remain disabled. See the [change-set review](../infra/iam-review/simulator-access-changeset-review.md).
 
 ## Security bootstrap checkpoint — 12 September 2026
 
