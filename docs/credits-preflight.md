@@ -1,5 +1,9 @@
 # Credits and deployment gate
 
+## Simulator activation review — 13 September 2026
+
+Created the standard update change set `neighborgear-simulator-access-review-20260913` for the existing `neighborgear-security` stack in Ireland. CloudFormation reports `CREATE_COMPLETE` / `AVAILABLE`; all supported deployment validations passed. The exact diff contains two in-place IAM role policy changes and one MFA-gated operator assume-role policy, with no replacements, application resources or model runtime. The change set is deliberately unexecuted, so both roles remain quarantined. See the [change-set review](../infra/iam-review/simulator-access-changeset-review.md).
+
 ## Security bootstrap checkpoint — 12 September 2026
 
 Immediately before execution, a fresh owner Billing console check showed **$120.00 total and estimated promotional credit remaining, $0.00 used**, across two active credits expiring 5 September 2027. After an explicit action-time owner approval, the prevalidated `neighborgear-security-review-20260912` change set was executed in Ireland. Stack `neighborgear-security` reached `CREATE_COMPLETE`; all five resources completed: the private encrypted/versioned artifact bucket, its TLS-only policy, the retained on-demand control table, and two one-hour, deny-all-quarantined deployment roles.

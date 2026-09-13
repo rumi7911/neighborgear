@@ -1,6 +1,6 @@
-# Provisioning review — updated 12 September 2026
+# Provisioning review — updated 13 September 2026
 
-**The owner network prerequisite, deny-all-quarantined security scaffold and unattached workload boundary are deployed. Simulator role activation and application deployment remain unexecuted: do not attach or deploy them without their own reviewed change sets and owner approvals.**
+**The owner network prerequisite, deny-all-quarantined security scaffold and unattached workload boundary are deployed. The simulator activation change set is validated and available but unexecuted; application deployment has not started. Both execution steps require their own owner approvals.**
 
 ## Prepared artifacts
 
@@ -46,7 +46,7 @@ The workload boundary was deployed from the separately reviewed `infra/workload-
 
 The application template now separates simulator and live provisioning. Simulator mode runs the deterministic coordinator inside the worker Lambda and conditions the AgentCore runtime, runtime role and invocation grant on live mode. The private simulator access bundle contains 24 CloudFormation statements and no Bedrock, AgentCore or runtime-role PassRole permission. Its compact review form is 7,609 characters. The security template's activation parameter defaults false and refuses placeholder API/distribution IDs; the deployed roles remain quarantined until a separately approved update executes.
 
-The scaffold's credit/cost and exact-change-set approvals are recorded in [its execution review](security-changeset-review.md). The quarantine has **no enable parameter**: replacing it requires an owner-reviewed template change after complete permission validation. Attaching an Allow policy alongside the quarantine will not unlock a role.
+The scaffold's initial credit/cost and exact-change-set approvals are recorded in [its execution review](security-changeset-review.md). The gated simulator activation is recorded in the [simulator change-set review](simulator-access-changeset-review.md). That update is validated but unexecuted; attaching an Allow policy alongside the current explicit deny would not unlock either role.
 
 ## Unresolved before a complete deployment policy
 
@@ -54,7 +54,7 @@ The scaffold's credit/cost and exact-change-set approvals are recorded in [its e
 2. **CloudFront:** the initial owner-reviewed network change set completed successfully. The ownership split avoids granting generated-ID creation/management operations to the app role, and no application CloudFront grant has been added. Future updates and teardown remain owner-controlled.
 3. **AgentCore:** creation/deletion mappings include runtime endpoints, capacity-provider and workload-identity dependencies. Verify the actual direct-code, IAM-authenticated handler path and applicable resource scope before granting them. No AgentCore provisioning grant has been added.
 4. **API dependency completeness:** the service reference maps some operations to permissions for variants not configured here, including DynamoDB replication/resource policies, Lambda layers/capacity providers and S3 ACL/object-lock/versioning writes. This component does not resolve those prerequisites and is deliberately not represented as a complete operation-derived policy. Reconcile them with authoritative handler/API evidence before assembly; do not blindly attach all reported permissions. Event-mapping tag permissions also need resolution if SAM/CloudFormation supplies tags.
-5. **Assembly and live validation:** merge the resolved provisioning component with bounded workload-role management, validate aggregate policy size and IAM semantics, run positive/negative simulations, inspect actual generated IDs/trust/boundaries, and test create/update/rollback. Only then prepare an owner-reviewed replacement for quarantine and the operator's assume-role attachment. Frontend publication permissions remain separate.
+5. **Live-mode assembly and validation:** the simulator bundle is assembled and its activation change set is ready for owner review. Live mode remains unresolved: add AgentCore/Bedrock only after exact runtime identities are known, revalidate aggregate policy size and IAM semantics, run positive/negative simulations, and inspect a new owner-reviewed change set. Application create/update/rollback still needs cloud verification after the simulator activation and application deployment are separately approved.
 
 None of these reviews authorizes account-wide grants. Exact deployed-API editor validation and simulation are complete; the AWS connector was unavailable for that checkpoint, so the simulation was run as a custom, unattached policy in the authenticated owner console. Lambda quota and credit/cost planning gates are recorded separately; Scheduler credit coverage, usage-stop controls and the remaining application permissions still require final review.
 

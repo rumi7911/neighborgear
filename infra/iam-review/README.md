@@ -1,8 +1,8 @@
 # Access-policy review checkpoint
 
-## Live access update — 12 September 2026
+## Live access update — 13 September 2026
 
-Latest: after exact owner approvals, the seven-resource network stack and five-resource deny-all-quarantined security scaffold completed successfully in Ireland. The deployed HTTP API ID and other outputs are stored only in a gitignored local environment file. The security scaffold added no user attachment or active deployment grant. No application compute, business data or model invocation exists yet. The plugin's prior non-root validation established that the policy bundles had zero Access Analyzer findings and that their positive/negative IAM cases behaved as intended, but those checks used review-only API and workload-identity placeholders. On 12 September, a separately approved read-only simulation helper was added to the operator preflight policy and its saved JSON was read back. The AWS console policy editor reported zero findings for the exact deployed-API route policy; API Gateway V2 simulation allowed the four intended exact-API cases, then denied unrelated-API POST and PATCH while exact-API GET and DELETE remained allowed. The custom simulation policy was not created or attached. The workload-identity dependency remains unresolved.
+Latest: after exact owner approvals, the seven-resource network stack, five-resource deny-all-quarantined security scaffold and unattached workload boundary completed successfully in Ireland. The deployed HTTP API ID and other outputs are stored only in a gitignored local environment file. On 13 September, CloudFormation created and validated the unexecuted simulator activation change set `neighborgear-simulator-access-review-20260913`. Its [review record](simulator-access-changeset-review.md) confirms exactly two in-place IAM role modifications and one MFA-gated user policy addition, with no replacements or application/model resources. The roles remain quarantined until a separate owner-approved execution. No application compute, business data or model invocation exists yet.
 
 ### Historical 10 September checkpoint
 
