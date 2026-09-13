@@ -8,6 +8,7 @@ import boto3
 from botocore.config import Config
 from infra.repository import DynamoRepository
 from infra.dispatch import publish, sweep
+from infra.runtime import execute
 
 
 @lru_cache
@@ -56,9 +57,12 @@ def worker_handler(event, context):
     for record in event["Records"]:
         try:
             run_id = json.loads(record["body"])["run_id"]
-            result = client("bedrock-agentcore").invoke_agent_runtime(agentRuntimeArn=os.environ["NEIGHBORGEAR_RUNTIME_ARN"], runtimeSessionId=str(uuid4()), payload=json.dumps({"run_id":run_id}).encode(), contentType="application/json")
-            with result["response"] as body:
-                outcome = json.loads(body.read())
+            if os.getenv("NEIGHBORGEAR_MODE", "simulator") == "live":
+                result = client("bedrock-agentcore").invoke_agent_runtime(agentRuntimeArn=os.environ["NEIGHBORGEAR_RUNTIME_ARN"], runtimeSessionId=str(uuid4()), payload=json.dumps({"run_id":run_id}).encode(), contentType="application/json")
+                with result["response"] as body:
+                    outcome = json.loads(body.read())
+            else:
+                outcome = execute(repository(), run_id)
             if outcome.get("status") not in ("succeeded", "failed", "discarded", "stopped"):
                 raise RuntimeError("Agent runtime did not report a terminal result")
         except Exception:

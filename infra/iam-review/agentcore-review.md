@@ -18,14 +18,14 @@ The workload identity does not exist yet. An exact-identity deletion policy cann
 
 ## Offline assembly
 
-`scripts/build_access_review.py` combines the four CloudFormation components: bounded role management, named resources, exact-API routes and AgentCore. It reads a private JSON file containing `AccountId`, `ApiId`, `ArtifactBucketName`, and `WorkloadIdentityArn`, and prints a **review wrapper** with `policy`, its compact character count, and remaining gates. It makes no AWS calls, creates no files, and always reports `application_ready=false`.
+`scripts/build_access_review.py` has explicit `simulator` and `live` assembly modes. Simulator mode combines bounded role management, named resources and exact-API routes while removing Runtime-role PassRole; it requires only `AccountId`, `ApiId` and `ArtifactBucketName` and contains no AgentCore or Bedrock action. Live mode additionally includes AgentCore provisioning and requires the exact `WorkloadIdentityArn`. Both modes print a **review wrapper** with the mode, policy, compact character count and remaining gates. The script makes no AWS calls, creates no files, and always reports `application_ready=false`.
 
 It rejects missing identifiers, scope wildcards, a directory ARN, foreign-account/region identities, unknown substitutions and a policy exceeding 10,240 compact characters. Format checks cannot prove ownership or runtime association; verify inputs against AWS responses. The size check covers the assembled document only: all other inline policies on the role, including quarantine, count toward the aggregate AWS limit. Do not treat this as a managed policy, whose individual limit is smaller. The existing deny-all quarantine is untouched.
 
 After verified identifiers exist, run locally with a private values file outside Git:
 
 ```sh
-uv run python scripts/build_access_review.py /absolute/private/path/neighborgear-review-values.json
+uv run python scripts/build_access_review.py --mode simulator /absolute/private/path/neighborgear-review-values.json
 ```
 
 The output contains account/resource identifiers; do not publish or paste it into the public repository. The wrapper itself is not an IAM policy to attach. Passing local assembly does not resolve remaining named-resource handler dependencies, prove live authorization, approve the owner network setup, fix the Lambda quota, verify Scheduler credit coverage, or implement the six-hour stop control.

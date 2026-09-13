@@ -15,8 +15,7 @@ class OfflinePolicyNames:
         }
 
 
-@pytest.fixture
-def expanded(monkeypatch):
+def expand_template(monkeypatch, mode):
     monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-west-1")
     template, errors = decode(str(Path(__file__).parents[1] / "template.yaml"))
     assert not errors
@@ -24,10 +23,21 @@ def expanded(monkeypatch):
     template["Globals"]["Function"]["CodeUri"] = "s3://offline-fixture/artifact.zip"
     return transform(template, {
         "EnableResources": "true", "CreditsVerified": "true",
+        "Mode": mode,
         "JudgeKey": "fictional-offline-test-key-only", "CodeBucket": "offline-fixture",
         "CodeKey": "agent/artifact.zip", "NetworkApiId": "abc123def4",
         "NetworkDomainName": "d123example.cloudfront.net",
     }, OfflinePolicyNames())
+
+
+@pytest.fixture
+def expanded(monkeypatch):
+    return expand_template(monkeypatch, "live")
+
+
+@pytest.fixture
+def simulator_expanded(monkeypatch):
+    return expand_template(monkeypatch, "simulator")
 
 
 def test_sam_expansion_cannot_introduce_unbounded_or_managed_policy_roles(expanded):
@@ -65,6 +75,21 @@ def test_runtime_create_supplies_required_project_tag_without_instances_compute(
     runtime = expanded["Resources"]["AgentRuntime"]["Properties"]
     assert runtime.get("Tags", {}).get("Project") == "NeighborGear"
     assert "CapacityProviderConfiguration" not in runtime
+
+
+def test_simulator_stack_conditions_agentcore_resources_and_worker_grant_on_live_mode(simulator_expanded):
+    resources = simulator_expanded["Resources"]
+    assert resources["AgentRuntime"]["Condition"] == "LiveEnabled"
+    assert resources["RuntimeRole"]["Condition"] == "LiveEnabled"
+    worker = resources["WorkerFunction"]["Properties"]
+    assert worker["Environment"]["Variables"]["NEIGHBORGEAR_RUNTIME_ARN"] == {
+        "Fn::If": ["LiveEnabled", {"Fn::GetAtt": ["AgentRuntime", "AgentRuntimeArn"]}, {"Ref": "AWS::NoValue"}]
+    }
+    statements = resources["WorkerRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]
+    conditional = [statement for statement in statements if "Fn::If" in statement]
+    assert len(conditional) == 1
+    assert conditional[0]["Fn::If"][0] == "LiveEnabled"
+    assert conditional[0]["Fn::If"][1]["Action"] == "bedrock-agentcore:InvokeAgentRuntime"
 
 
 def test_all_entry_roles_can_read_but_not_write_owner_control(expanded):

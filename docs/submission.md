@@ -36,7 +36,7 @@ The evaluation suite measures workflow completion, errors, and latency. Time sav
 ## Status on 12 September 2026
 
 - Devpost project `NeighborGear` exists as a **draft**. It has not been submitted or published.
-- The local MVP is complete and the Python suite has passed 131 tests.
+- The local MVP is complete and the Python suite has passed 138 tests.
 - The public repository, MIT licence, README and architecture diagram are available.
 - AWS credits and gross-cost alerts are verified. The network and quarantined security scaffolds are deployed in `eu-west-1`; no application compute or model run has been enabled.
 - The approved change set `neighborgear-workload-boundary-review-20260912` was executed. Stack `neighborgear-workload-boundary` and its sole resource, the unattached `AWS::IAM::ManagedPolicy`, reached `CREATE_COMPLETE`.

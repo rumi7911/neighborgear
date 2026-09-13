@@ -47,6 +47,9 @@ Rules:
         AssertDescription: Verify issued credits and projected costs before enabling any resources.
 Conditions:
   Enabled: !Equals [!Ref EnableResources, 'true']
+  LiveEnabled: !And
+    - !Condition Enabled
+    - !Equals [!Ref Mode, live]
 Globals:
   Function:
     Runtime: python3.12
@@ -158,7 +161,7 @@ Resources:
       ReservedConcurrentExecutions: 1
       Environment:
         Variables:
-          NEIGHBORGEAR_RUNTIME_ARN: !GetAtt AgentRuntime.AgentRuntimeArn
+          NEIGHBORGEAR_RUNTIME_ARN: !If [LiveEnabled, !GetAtt AgentRuntime.AgentRuntimeArn, !Ref 'AWS::NoValue']
       Events:
         Work:
           Type: SQS
@@ -239,9 +242,12 @@ Resources:
               - Effect: Allow
                 Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
                 Resource: !GetAtt Queue.Arn
-              - Effect: Allow
-                Action: bedrock-agentcore:InvokeAgentRuntime
-                Resource: !GetAtt AgentRuntime.AgentRuntimeArn
+              - !If
+                - LiveEnabled
+                - Effect: Allow
+                  Action: bedrock-agentcore:InvokeAgentRuntime
+                  Resource: !GetAtt AgentRuntime.AgentRuntimeArn
+                - !Ref 'AWS::NoValue'
               - Effect: Allow
                 Action: [logs:CreateLogStream, logs:PutLogEvents]
                 Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-worker:*'
@@ -306,7 +312,7 @@ Resources:
                 Resource: !GetAtt SweepFunction.Arn
   RuntimeRole:
     Type: AWS::IAM::Role
-    Condition: Enabled
+    Condition: LiveEnabled
     Properties:
       RoleName: !Sub '${AWS::StackName}-Runtime'
       Path: !Sub '/${AWS::StackName}/'
@@ -355,7 +361,7 @@ Resources:
                 Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/NeighborGear_${AWS::AccountId}-*'
   AgentRuntime:
     Type: AWS::BedrockAgentCore::Runtime
-    Condition: Enabled
+    Condition: LiveEnabled
     Properties:
       AgentRuntimeName: !Sub 'NeighborGear_${AWS::AccountId}'
       Tags: {Project: NeighborGear}
@@ -396,5 +402,5 @@ Outputs:
     Condition: Enabled
     Value: !Sub '${AWS::StackName}-${AWS::AccountId}-${AWS::Region}-web'
   RuntimeArn:
-    Condition: Enabled
+    Condition: LiveEnabled
     Value: !GetAtt AgentRuntime.AgentRuntimeArn

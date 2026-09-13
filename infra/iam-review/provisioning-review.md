@@ -1,6 +1,6 @@
 # Provisioning review — updated 12 September 2026
 
-**The owner network prerequisite and deny-all-quarantined security scaffold are deployed. Application policies, the workload boundary and role activation remain review-only: do not attach or deploy them yet.**
+**The owner network prerequisite, deny-all-quarantined security scaffold and unattached workload boundary are deployed. Simulator role activation and application deployment remain unexecuted: do not attach or deploy them without their own reviewed change sets and owner approvals.**
 
 ## Prepared artifacts
 
@@ -42,7 +42,9 @@ All action names and supported resource types in this component were checked aga
 
 `infra/security-bootstrap.yaml` creates nothing by default. After separate review and an explicit action-time owner approval, it was enabled and executed in Ireland on 12 September 2026. CloudFormation created the private, encrypted, versioned artifact bucket, retained on-demand control table, TLS-only bucket policy and two one-hour deployment roles; all five resources reached `CREATE_COMPLETE`. Both roles retain an explicit **deny-all quarantine** policy. There are no user attachments, credentials, broad managed policies or application resources. The Deployer trust retains the exact existing operator and MFA requirement. The CloudFormation trust uses AWS's documented service principal; no unsupported stack SourceArn condition is assumed.
 
-The workload boundary remains in the separate disabled `infra/workload-boundary.yaml`. Its ArtifactBucketName must match the scaffold output. These are account-global named IAM resources: do not create duplicate security stacks in other regions. The artifact bucket retains current versions on stack deletion; obsolete noncurrent versions expire after seven days and incomplete multipart uploads after one day. Retained storage is not a zero-cost guarantee.
+The workload boundary was deployed from the separately reviewed `infra/workload-boundary.yaml` after explicit owner approval. Stack `neighborgear-workload-boundary` and its sole, unattached managed policy reached `CREATE_COMPLETE`. Its artifact scope matches the scaffold output. These are account-global named IAM resources: do not create duplicate security stacks in other regions. The artifact bucket retains current versions on stack deletion; obsolete noncurrent versions expire after seven days and incomplete multipart uploads after one day. Retained storage is not a zero-cost guarantee.
+
+The application template now separates simulator and live provisioning. Simulator mode runs the deterministic coordinator inside the worker Lambda and conditions the AgentCore runtime, runtime role and invocation grant on live mode. The private simulator access bundle contains 24 CloudFormation statements and no Bedrock, AgentCore or runtime-role PassRole permission. Its compact review form is 7,609 characters. The security template's activation parameter defaults false and refuses placeholder API/distribution IDs; the deployed roles remain quarantined until a separately approved update executes.
 
 The scaffold's credit/cost and exact-change-set approvals are recorded in [its execution review](security-changeset-review.md). The quarantine has **no enable parameter**: replacing it requires an owner-reviewed template change after complete permission validation. Attaching an Allow policy alongside the quarantine will not unlock a role.
 

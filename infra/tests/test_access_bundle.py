@@ -18,6 +18,12 @@ def values():
     }
 
 
+def simulator_values():
+    supplied = values()
+    del supplied["WorkloadIdentityArn"]
+    return supplied
+
+
 def test_assembled_policy_is_resolved_but_never_marked_application_ready():
     import json
     result = assembler()(values())
@@ -34,7 +40,17 @@ def test_assembler_refuses_unresolved_identity_instead_of_defaulting_to_director
     supplied = values()
     del supplied["WorkloadIdentityArn"]
     with pytest.raises(ValueError, match="WorkloadIdentityArn"):
-        assembler()(supplied)
+        assembler()(supplied, mode="live")
+
+
+def test_simulator_bundle_needs_no_workload_identity_or_agentcore_permissions():
+    result = assembler()(simulator_values(), mode="simulator")
+    statements = result["policy"]["Statement"]
+    assert result["deployment_mode"] == "simulator"
+    assert not any(action.startswith("bedrock-agentcore:") for statement in statements
+                   for action in statement["Action"])
+    runtime_role = "arn:aws:iam::000000000000:role/neighborgear-demo/neighborgear-demo-Runtime"
+    assert not any(runtime_role in statement.get("Resource", []) for statement in statements)
 
 
 @pytest.mark.parametrize("field,value", [
@@ -63,6 +79,7 @@ def test_assembler_rejects_new_unresolved_or_oversized_components(tmp_path, monk
     }]}
     (tmp_path / "component.json").write_text(json.dumps(component))
     monkeypatch.setattr(module, "POLICY_ROOT", tmp_path)
-    monkeypatch.setattr(module, "COMPONENTS", ("component.json",))
+    monkeypatch.setattr(module, "BASE_COMPONENTS", ("component.json",))
+    monkeypatch.setattr(module, "LIVE_COMPONENTS", ("component.json",))
     with pytest.raises(ValueError, match=message):
         build(values())

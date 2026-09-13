@@ -1,13 +1,39 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Owner-only NeighborGear security scaffold. Roles are quarantined; not deployment-ready.
+Description: Owner-only NeighborGear security scaffold. Roles are quarantined by default.
 Parameters:
   EnableBootstrap:
     Type: String
     Default: 'false'
     AllowedValues: ['true', 'false']
     Description: Owner approval to create the scaffold only, not to enable deployment access.
+  EnableSimulatorAccess:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Separate owner approval to replace quarantine with the reviewed simulator-only deployment grants.
+  NetworkApiId:
+    Type: String
+    Default: disabled
+    AllowedPattern: 'disabled|[a-z0-9]+'
+    Description: Exact owner-managed HTTP API ID; required only when simulator access is enabled.
+  NetworkDistributionId:
+    Type: String
+    Default: disabled
+    AllowedPattern: 'disabled|[A-Z0-9]+'
+    Description: Exact owner-managed CloudFront distribution ID; required only when simulator access is enabled.
+Rules:
+  ExactNetworkOutputsForSimulatorAccess:
+    RuleCondition: !Equals [!Ref EnableSimulatorAccess, 'true']
+    Assertions:
+      - Assert: !Not [!Equals [!Ref NetworkApiId, disabled]]
+        AssertDescription: Supply the exact deployed HTTP API ID before enabling simulator access.
+      - Assert: !Not [!Equals [!Ref NetworkDistributionId, disabled]]
+        AssertDescription: Supply the exact deployed CloudFront distribution ID before enabling simulator access.
 Conditions:
   Approved: !Equals [!Ref EnableBootstrap, 'true']
+  SimulatorAccess: !And
+    - !Condition Approved
+    - !Equals [!Ref EnableSimulatorAccess, 'true']
 Resources:
   DemoControls:
     Type: AWS::DynamoDB::Table
@@ -76,10 +102,61 @@ Resources:
             Condition:
               Bool: {aws:MultiFactorAuthPresent: 'true'}
       Policies:
-        - PolicyName: DeploymentQuarantine
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement: [{Effect: Deny, Action: '*', Resource: '*'}]
+        !If
+          - SimulatorAccess
+          - - PolicyName: SimulatorDeployment
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Sid: UploadAndVerifyOnlyProjectArtifacts
+                    Effect: Allow
+                    Action: [s3:PutObject, s3:GetObject, s3:AbortMultipartUpload, s3:ListMultipartUploadParts]
+                    Resource: !Sub '${Artifacts.Arn}/agent/*'
+                    Condition:
+                      StringEquals: {s3:ResourceAccount: !Ref 'AWS::AccountId'}
+                  - Sid: LocateOnlyOwnerArtifactBucket
+                    Effect: Allow
+                    Action: s3:GetBucketLocation
+                    Resource: !GetAtt Artifacts.Arn
+                    Condition:
+                      StringEquals: {s3:ResourceAccount: !Ref 'AWS::AccountId'}
+                  - Sid: PublishOnlyNetworkOwnedWebAssets
+                    Effect: Allow
+                    Action: [s3:PutObject, s3:GetObject]
+                    Resource: !Sub 'arn:${AWS::Partition}:s3:::neighborgear-demo-${AWS::AccountId}-${AWS::Region}-web/*'
+                    Condition:
+                      StringEquals: {s3:ResourceAccount: !Ref 'AWS::AccountId'}
+                  - Sid: InvalidateOnlyNeighborGearDistribution
+                    Effect: Allow
+                    Action: [cloudfront:CreateInvalidation, cloudfront:GetInvalidation]
+                    Resource: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${NetworkDistributionId}'
+                  - Sid: PrepareOnlyDemoChangesWithFixedServiceRole
+                    Effect: Allow
+                    Action: cloudformation:CreateChangeSet
+                    Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/neighborgear-demo/*'
+                    Condition:
+                      ArnEquals:
+                        cloudformation:RoleArn: !GetAtt CloudFormation.Arn
+                  - Sid: ReviewAndExecuteOnlyDemoChanges
+                    Effect: Allow
+                    Action: [cloudformation:DescribeChangeSet, cloudformation:DeleteChangeSet, cloudformation:ExecuteChangeSet, cloudformation:DescribeStacks, cloudformation:DescribeStackEvents, cloudformation:ListStackResources, cloudformation:GetTemplate, cloudformation:TagResource, cloudformation:UntagResource]
+                    Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/neighborgear-demo/*'
+                  - Sid: PassOnlyFixedCloudFormationRole
+                    Effect: Allow
+                    Action: iam:PassRole
+                    Resource: !GetAtt CloudFormation.Arn
+                    Condition:
+                      StringEquals: {iam:PassedToService: cloudformation.amazonaws.com}
+                  - Sid: TemplateValidationAndStackDiscovery
+                    Effect: Allow
+                    Action: [cloudformation:ListStacks, cloudformation:ValidateTemplate]
+                    Resource: '*'
+                    Condition:
+                      StringEquals: {aws:RequestedRegion: !Ref 'AWS::Region'}
+          - - PolicyName: DeploymentQuarantine
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement: [{Effect: Deny, Action: '*', Resource: '*'}]
   CloudFormation:
     Type: AWS::IAM::Role
     Condition: Approved
@@ -93,10 +170,170 @@ Resources:
             Principal: {Service: cloudformation.amazonaws.com}
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: DeploymentQuarantine
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement: [{Effect: Deny, Action: '*', Resource: '*'}]
+        !If
+          - SimulatorAccess
+          - - PolicyName: SimulatorProvisioning
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Sid: CreateOnlyBoundedWorkloadRoles
+                    Effect: Allow
+                    Action: iam:CreateRole
+                    Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/neighborgear-demo/*'
+                    Condition:
+                      ArnEquals:
+                        iam:PermissionsBoundary: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/NeighborGearWorkloadBoundary'
+                  - Sid: ManageOnlyProjectInlineRoles
+                    Effect: Allow
+                    Action: [iam:GetRole, iam:GetRolePolicy, iam:ListRolePolicies, iam:ListAttachedRolePolicies, iam:ListRoleTags, iam:PutRolePolicy, iam:DeleteRolePolicy, iam:DeleteRole, iam:TagRole, iam:UntagRole, iam:UpdateAssumeRolePolicy]
+                    Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/neighborgear-demo/*'
+                  - Sid: PassOnlyLambdaRolesToLambda
+                    Effect: Allow
+                    Action: iam:PassRole
+                    Resource:
+                      - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/neighborgear-demo/neighborgear-demo-Api'
+                      - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/neighborgear-demo/neighborgear-demo-Worker'
+                      - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/neighborgear-demo/neighborgear-demo-Sweep'
+                    Condition:
+                      StringEquals: {iam:PassedToService: lambda.amazonaws.com}
+                  - Sid: PassOnlySchedulerRoleToScheduler
+                    Effect: Allow
+                    Action: iam:PassRole
+                    Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/neighborgear-demo/neighborgear-demo-Scheduler'
+                    Condition:
+                      StringEquals: {iam:PassedToService: scheduler.amazonaws.com}
+                  - Sid: NeverReplaceOrRemoveWorkloadBoundaries
+                    Effect: Deny
+                    Action: [iam:PutRolePermissionsBoundary, iam:DeleteRolePermissionsBoundary]
+                    Resource: '*'
+                  - Sid: NeverManageOrAttachManagedPolicies
+                    Effect: Deny
+                    Action: [iam:CreatePolicy, iam:CreatePolicyVersion, iam:SetDefaultPolicyVersion, iam:DeletePolicyVersion, iam:DeletePolicy, iam:AttachRolePolicy]
+                    Resource: '*'
+                  - Sid: ManageOnlyDemoTableConfiguration
+                    Effect: Allow
+                    Action: [dynamodb:CreateTable, dynamodb:DescribeTable, dynamodb:UpdateTable, dynamodb:DeleteTable, dynamodb:DescribeTimeToLive, dynamodb:UpdateTimeToLive, dynamodb:TagResource, dynamodb:UntagResource, dynamodb:ListTagsOfResource]
+                    Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/neighborgear-demo-records'
+                  - Sid: ManageOnlyDemoQueues
+                    Effect: Allow
+                    Action: [sqs:CreateQueue, sqs:GetQueueAttributes, sqs:GetQueueUrl, sqs:SetQueueAttributes, sqs:DeleteQueue, sqs:TagQueue, sqs:UntagQueue, sqs:ListQueueTags]
+                    Resource:
+                      - !Sub 'arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:neighborgear-demo-work.fifo'
+                      - !Sub 'arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:neighborgear-demo-dead-letters.fifo'
+                  - Sid: CreateOnlyNamedIrelandApplicationBuckets
+                    Effect: Allow
+                    Action: s3:CreateBucket
+                    Resource: !Sub 'arn:${AWS::Partition}:s3:::neighborgear-demo-${AWS::AccountId}-${AWS::Region}-sessions'
+                    Condition:
+                      StringEquals: {s3:LocationConstraint: !Ref 'AWS::Region'}
+                  - Sid: ConfigureOnlyOwnedApplicationBuckets
+                    Effect: Allow
+                    Action: [s3:ListBucket, s3:GetBucketLocation, s3:GetEncryptionConfiguration, s3:PutEncryptionConfiguration, s3:GetBucketPublicAccessBlock, s3:PutBucketPublicAccessBlock, s3:GetBucketTagging, s3:PutBucketTagging, s3:GetBucketVersioning, s3:GetBucketOwnershipControls]
+                    Resource: !Sub 'arn:${AWS::Partition}:s3:::neighborgear-demo-${AWS::AccountId}-${AWS::Region}-sessions'
+                    Condition:
+                      StringEquals: {s3:ResourceAccount: !Ref 'AWS::AccountId'}
+                  - Sid: ConfigureOnlyFictionalSessionExpiry
+                    Effect: Allow
+                    Action: [s3:GetLifecycleConfiguration, s3:PutLifecycleConfiguration]
+                    Resource: !Sub 'arn:${AWS::Partition}:s3:::neighborgear-demo-${AWS::AccountId}-${AWS::Region}-sessions'
+                    Condition:
+                      StringEquals: {s3:ResourceAccount: !Ref 'AWS::AccountId'}
+                  - Sid: ReadOnlyOwnerUploadedCode
+                    Effect: Allow
+                    Action: s3:GetObject
+                    Resource: !Sub '${Artifacts.Arn}/agent/*'
+                    Condition:
+                      StringEquals: {s3:ResourceAccount: !Ref 'AWS::AccountId'}
+                  - Sid: ManageOnlyThreeDemoFunctions
+                    Effect: Allow
+                    Action: [lambda:CreateFunction, lambda:GetFunction, lambda:GetFunctionConfiguration, lambda:UpdateFunctionCode, lambda:UpdateFunctionConfiguration, lambda:DeleteFunction, lambda:PutFunctionConcurrency, lambda:GetFunctionConcurrency, lambda:TagResource, lambda:UntagResource, lambda:ListTags]
+                    Resource:
+                      - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:neighborgear-demo-api'
+                      - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:neighborgear-demo-worker'
+                      - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:neighborgear-demo-sweep'
+                  - Sid: PermitOnlyApiGatewayFunctionPermission
+                    Effect: Allow
+                    Action: lambda:AddPermission
+                    Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:neighborgear-demo-api'
+                    Condition:
+                      StringEquals: {lambda:Principal: apigateway.amazonaws.com}
+                  - Sid: ReadAndRemoveOnlyApiFunctionPermissions
+                    Effect: Allow
+                    Action: [lambda:GetPolicy, lambda:RemovePermission]
+                    Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:neighborgear-demo-api'
+                  - Sid: CreateEventMappingOnlyForWorkerInIreland
+                    Effect: Allow
+                    Action: lambda:CreateEventSourceMapping
+                    Resource: '*'
+                    Condition:
+                      StringEquals: {aws:RequestedRegion: !Ref 'AWS::Region'}
+                      ArnEquals:
+                        lambda:FunctionArn: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:neighborgear-demo-worker'
+                  - Sid: ManageOnlyWorkerEventMappings
+                    Effect: Allow
+                    Action: [lambda:GetEventSourceMapping, lambda:UpdateEventSourceMapping, lambda:DeleteEventSourceMapping]
+                    Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:*'
+                    Condition:
+                      ArnEquals:
+                        lambda:FunctionArn: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:neighborgear-demo-worker'
+                  - Sid: ManageOnlyDemoLogGroups
+                    Effect: Allow
+                    Action: [logs:CreateLogGroup, logs:DeleteLogGroup, logs:PutRetentionPolicy, logs:DeleteRetentionPolicy, logs:TagLogGroup, logs:UntagLogGroup, logs:ListTagsLogGroup]
+                    Resource:
+                      - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/neighborgear-demo-api:*'
+                      - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/neighborgear-demo-worker:*'
+                      - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/neighborgear-demo-sweep:*'
+                  - Sid: ManageTagsOnlyOnDemoLogGroups
+                    Effect: Allow
+                    Action: [logs:TagResource, logs:UntagResource, logs:ListTagsForResource]
+                    Resource:
+                      - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/neighborgear-demo-api'
+                      - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/neighborgear-demo-worker'
+                      - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/neighborgear-demo-sweep'
+                  - Sid: DiscoverLogGroupMetadataOnlyInIreland
+                    Effect: Allow
+                    Action: logs:DescribeLogGroups
+                    Resource: '*'
+                    Condition:
+                      StringEquals: {aws:RequestedRegion: !Ref 'AWS::Region'}
+                  - Sid: ManageOnlyProjectReminderGroup
+                    Effect: Allow
+                    Action: [scheduler:CreateScheduleGroup, scheduler:GetScheduleGroup, scheduler:DeleteScheduleGroup, scheduler:TagResource, scheduler:UntagResource, scheduler:ListTagsForResource]
+                    Resource: !Sub 'arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/neighborgear-demo-reminders'
+                  - Sid: ManageSchedulesOnlyInsideProjectGroup
+                    Effect: Allow
+                    Action: [scheduler:CreateSchedule, scheduler:GetSchedule, scheduler:UpdateSchedule, scheduler:DeleteSchedule]
+                    Resource: !Sub 'arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/neighborgear-demo-reminders/*'
+                  - Sid: CreateRoutesAndIntegrationOnlyInsideOwnerApi
+                    Effect: Allow
+                    Action: apigateway:POST
+                    Resource:
+                      - !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/${NetworkApiId}/integrations'
+                      - !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/${NetworkApiId}/routes'
+                  - Sid: ManageRoutesAndIntegrationOnlyInsideOwnerApi
+                    Effect: Allow
+                    Action: [apigateway:GET, apigateway:PATCH, apigateway:DELETE]
+                    Resource:
+                      - !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/${NetworkApiId}/integrations/*'
+                      - !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/${NetworkApiId}/routes/*'
+          - - PolicyName: DeploymentQuarantine
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement: [{Effect: Deny, Action: '*', Resource: '*'}]
+  OperatorAssumeDeployer:
+    Type: AWS::IAM::Policy
+    Condition: SimulatorAccess
+    Properties:
+      PolicyName: NeighborGearAssumeDeployer
+      Users: [NeighborGearOperator]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Resource: !GetAtt Deployer.Arn
+            Condition:
+              Bool: {aws:MultiFactorAuthPresent: 'true'}
 Outputs:
   ControlTableName:
     Condition: Approved

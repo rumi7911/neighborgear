@@ -29,3 +29,17 @@ def test_lambda_api_fails_closed_without_judge_configuration(monkeypatch):
     from infra.handlers import api_handler
     monkeypatch.delenv("NEIGHBORGEAR_JUDGE_KEY",raising=False)
     assert api_handler({},None)["statusCode"] == 503
+
+
+def test_worker_executes_simulator_run_without_agentcore(env, monkeypatch):
+    from infra import handlers
+    repo, _, _ = env
+    calls = []
+    monkeypatch.setenv("NEIGHBORGEAR_MODE", "simulator")
+    monkeypatch.setattr(handlers, "repository", lambda: repo)
+    monkeypatch.setattr(handlers, "execute", lambda actual_repo, run_id: calls.append((actual_repo, run_id)) or {"status": "succeeded"}, raising=False)
+    monkeypatch.setattr(handlers, "client", lambda service: (_ for _ in ()).throw(AssertionError("simulator must not create an AgentCore client")))
+    event = {"Records": [{"messageId": "message-1", "body": json.dumps({"run_id": "run-1"})}]}
+
+    assert handlers.worker_handler(event, None) == {"batchItemFailures": []}
+    assert calls == [(repo, "run-1")]
